@@ -35,8 +35,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sea);color:var(-
 #hudTop{display:contents}
 #fpReticle{position:absolute;left:50%;top:50%;width:7px;height:7px;transform:translate(-50%,-50%);background:#fff4cf;border:1px solid #2c4144;border-radius:50%;box-shadow:0 0 5px #112932;pointer-events:none}
 #tidePanel{position:absolute;left:calc(14px + var(--safe-l));top:calc(14px + var(--safe-t));width:330px}
-#btnHarborFinish{pointer-events:auto;width:100%;margin-top:6px;min-height:36px;border:1px solid #90d5c3;border-radius:8px;background:#214d52;color:#f3fff6;font:inherit;font-weight:700;cursor:pointer}
-#btnHarborFinish:hover{background:#306368}
+.tideActions{display:flex;gap:6px;margin-top:6px}
+#btnView,#btnHarborFinish{pointer-events:auto;padding:0 8px;min-height:36px;border:1px solid #90d5c3;border-radius:8px;background:#214d52;color:#f3fff6;font:inherit;font-weight:700;cursor:pointer}
+#btnHarborFinish{flex:1}
+#btnView:hover,#btnHarborFinish:hover{background:#306368}
 #tideTop{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700}
 #tidePhase{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 #tideTime{font-size:21px;font-variant-numeric:tabular-nums;white-space:nowrap;flex:none}
@@ -705,7 +707,7 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
     <div id="tideGauge"><div id="tideFill"></div><div id="tideMarks"></div></div>
     <div id="nextFlood"></div>
     <div id="returnStat"></div>
-    <button type="button" id="btnHarborFinish" hidden>오늘 탐험 마치기</button>
+    <div class="tideActions"><button type="button" id="btnView" aria-label="시점 전환">3인칭</button><button type="button" id="btnHarborFinish" hidden>오늘 탐험 마치기</button></div>
   </div>
   <div id="objective" class="card"></div>
   <div id="fpReticle" hidden aria-hidden="true"></div>
@@ -880,6 +882,7 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
   <h3>저장 데이터</h3>
   <p class="note" style="margin:0 0 8px">다른 브라우저로 옮기거나 백업해 둘 수 있어요. 불러오면 지금 진행 상황이 그 저장으로 바뀌어요.</p>
   <div class="saveio"><button class="btn dark small" id="btnExportFile">파일로 내보내기</button><button class="btn dark small" id="btnExportText">문자열로 복사</button><button class="btn dark small" id="btnImportFile">파일에서 불러오기</button><button class="btn dark small" id="btnImportText">문자열 붙여넣기</button></div>
+  <div class="saveio"><button class="btn dark small" id="btnExportOldView" hidden>이전 1인칭 저장 내보내기</button></div>
   <input type="file" id="importFile" accept=".json,application/json,text/plain" hidden>
   <div class="menu row2" style="margin-top:14px"><button class="btn dark small keysec" id="btnKeysReset">키 기본값으로</button><button class="btn dark small" id="btnMmReset">미니맵 기본 크기</button><button class="btn primary" id="btnSettingsClose">닫기</button></div>
   <p class="buildNote" id="buildNote"></p>
@@ -954,7 +957,7 @@ window.addEventListener('unhandledrejection', function (e) {
    1. 유틸리티
    ========================================================= */
 const $ = id => document.getElementById(id);
-const FIRST_PERSON = /(?:^|[?&])view=first-person(?:&|$)/.test(globalThis.location?.search || '');
+let FIRST_PERSON = /(?:^|[?&])view=first-person(?:&|$)/.test(globalThis.location?.search || '');
 const FP_PITCH = .12, FP_MIN = -Math.PI / 3, FP_MAX = Math.PI * .4;
 // 바뀐 경우에만 DOM에 씀 (같은 내용을 매번 다시 쓰면 화면 정보 배치를 다시 계산함)
 function setHTML(el, h) { if (el._h !== h) { el._h = h; el.innerHTML = h; } }
@@ -1209,7 +1212,16 @@ const DEX_WHERE = {
 /* =========================================================
    3. 저장과 설정
    ========================================================= */
-const SAVE_KEY = FIRST_PERSON ? 'sinking-island-first-person-save-v1' : 'sinking-island-save-v1';
+const SAVE_KEY = 'sinking-island-save-v1';
+const LEGACY_FIRST_KEY = 'sinking-island-first-person-save-v1';
+function legacyFirstSave() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LEGACY_FIRST_KEY));
+    if (raw?.v !== 1) return null;
+    for (const key of ['expState','depState']) if (raw[key] && typeof raw[key] === 'object') raw[key].camFirst = true;
+    return raw;
+  } catch { return null; }
+}
 const SET_KEY = 'sinking-island-settings-v1';
 function newGid() { return (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)).slice(0, 16); }
 function defaultSave() {
@@ -1226,7 +1238,7 @@ function defaultSave() {
 let SAVE = defaultSave();
 // 오늘의 섬 도전 상태: on이면 SAVE는 도전용으로 따로 만든 것이고, 본 게임 저장은 main에 그대로 둠
 const CH = { on: false, date: '', main: null };
-function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+function hasSave() { try { return !!localStorage.getItem(SAVE_KEY) || !!legacyFirstSave(); } catch (e) { return false; } }
 /* ---------- 저장 데이터 정리·검사 ----------
    저장소에서 읽을 때(관대: 틀린 칸만 기본값으로)와 불러오기(엄격: 하나라도 틀리면 거절) 모두 같은 규칙을 씀.
    원본 객체를 그대로 합치지 않고 허용된 칸만 새 객체로 복사함 (__proto__ 같은 키가 끼어들 수 없음) */
@@ -1364,7 +1376,8 @@ function cleanSave(raw, strict) {
     const fin = (v, lo, hi, def) => (isNum(v) && v >= lo && v <= hi ? v : def);
     return {
       exp: es.exp, clock: es.clock === undefined ? 1 : (es.clock ? 1 : 0), t: es.t, x: es.x, z: es.z, yaw: fin(es.yaw, -1e4, 1e4, 0), camYaw: fin(es.camYaw, -1e4, 1e4, 0),
-      camPitch: fin(es.camPitch, CAM_PITCH_MIN, CAM_PITCH_MAX, CAM_PITCH),
+      camFirst: es.camFirst === true,
+      camPitch: fin(es.camPitch, es.camFirst === true ? FP_MIN : THIRD_MIN, es.camFirst === true ? FP_MAX : THIRD_MAX, es.camFirst === true ? FP_PITCH : THIRD_PITCH),
       haulKinds: cleanHaulKinds(es.haulKinds),
       bag: es.bag.slice(), items: es.items.map(it => [it[0], it[1], it[2], it[3] ? 1 : 0, it[4] ? 1 : 0, it[5] ? 1 : 0]),
       spots: (es.spots || []).map(v => (v ? 1 : 0)), sealOpen: !!es.sealOpen, scoped: !!es.scoped,
@@ -1394,7 +1407,8 @@ function cleanSave(raw, strict) {
 }
 function loadSave() {
   try {
-    const raw = JSON.parse(localStorage.getItem(SAVE_KEY));
+    const current = localStorage.getItem(SAVE_KEY);
+    const raw = current === null ? legacyFirstSave() : JSON.parse(current);
     if (!raw || raw.v !== 1) return false;
     const c = cleanSave(raw, false);   // 관대: 틀린 칸만 기본값으로 바로잡고 나머지 진행은 지킴
     if (!c.save) return false;
@@ -1523,7 +1537,7 @@ const KEY_ACTIONS = [
   ['up', '위로 이동', ['KeyW', 'ArrowUp']], ['down', '아래로 이동', ['KeyS', 'ArrowDown']], ['left', '왼쪽으로 이동', ['KeyA', 'ArrowLeft']], ['right', '오른쪽으로 이동', ['KeyD', 'ArrowRight']],
   ['run', '달리기', ['ShiftLeft', 'ShiftRight']], ['act', '줍기·조사·이용', ['KeyE']], ['bag', '가방 열기', ['KeyI']], ['map', '섬 지도', ['Tab']],
   ['rotL', '카메라 왼쪽으로 돌리기', ['KeyQ']], ['rotR', '카메라 오른쪽으로 돌리기', ['KeyR']], ['mute', '소리 켜고 끄기', ['KeyM']],
-  ['help', '플레이 방법 보기', ['KeyH']],
+  ['help', '플레이 방법 보기', ['KeyH']], ['view', '1인칭·3인칭 전환', ['KeyV']],
 ];
 const KEY_DEF = Object.fromEntries(KEY_ACTIONS.map(a => [a[0], a[2]]));
 function keyCodes(a) { const k = SET.keys && SET.keys[a]; return k ? [k, ...KEY_DEF[a].slice(1).filter(c => c !== k)] : KEY_DEF[a]; }
@@ -5831,8 +5845,9 @@ function surfaceAt(x, z) {
   return h > 2.8 ? 'grass' : 'sand';
 }
 // 카메라: 진행 방향 앞쪽을 더 보여 주며 부드럽게 따라감
-const CAM_PITCH = FIRST_PERSON ? FP_PITCH : .8, CAM_DIST = 35;   // 등각 투영에 가까운 기본 시점
-const CAM_PITCH_MIN = FIRST_PERSON ? FP_MIN : Math.PI / 12, CAM_PITCH_MAX = FIRST_PERSON ? FP_MAX : Math.PI * 17 / 36;   // 15°~85°
+const THIRD_PITCH = .8, THIRD_MIN = Math.PI / 12, THIRD_MAX = Math.PI * 17 / 36, CAM_DIST = 35;
+let CAM_PITCH = FIRST_PERSON ? FP_PITCH : THIRD_PITCH;   // 등각 투영에 가까운 기본 시점
+let CAM_PITCH_MIN = FIRST_PERSON ? FP_MIN : THIRD_MIN, CAM_PITCH_MAX = FIRST_PERSON ? FP_MAX : THIRD_MAX;   // 15°~85°
 const CAMS = { distT: CAM_DIST, viewDist: CAM_DIST, shake: 0, lx: 0, lz: 0, yawT: 0, yawV: 0, pitchT: CAM_PITCH, pitchV: 0 };
 const ORBIT = { id: null, x: 0, y: 0, dragging: false, sensitivity: .003 };
 // 임계 감쇠의 해를 써 프레임 수와 무관하게 회전 속도와 가속을 연속으로 잇는다.
@@ -5852,6 +5867,34 @@ function smoothCameraPitch(dt) {
   CAM.pitch = clamp(next, CAM_PITCH_MIN, CAM_PITCH_MAX);
   CAMS.pitchV = CAM.pitch === next ? (CAMS.pitchV - omega * j * dt) * decay : 0;
   if (Math.abs(CAM.pitch - target) < 1e-7 && Math.abs(CAMS.pitchV) < 1e-6) { CAM.pitch = target; CAMS.pitchV = 0; }
+}
+function syncViewButtons() {
+  const next = FIRST_PERSON ? '3인칭' : '1인칭';
+  $('btnViewEdition').textContent = next + '으로 전환';
+  const b = $('btnView');
+  b.textContent = FIRST_PERSON ? '1인칭' : '3인칭';
+  b.title = next + '으로 전환 (' + keyName('view') + ')';
+  b.setAttribute('aria-label', b.title);
+}
+function toggleCameraView() {
+  if (G.mode !== 'title' && !canAdjustCamera()) return false;
+  cancelCameraOrbit();
+  FIRST_PERSON = !FIRST_PERSON;
+  CAM_PITCH = FIRST_PERSON ? FP_PITCH : THIRD_PITCH;
+  CAM_PITCH_MIN = FIRST_PERSON ? FP_MIN : THIRD_MIN;
+  CAM_PITCH_MAX = FIRST_PERSON ? FP_MAX : THIRD_MAX;
+  CAMS.pitchT = CAM_PITCH; CAMS.pitchV = 0;
+  if (G.mode === 'play') {
+    CAM.pitch = CAM_PITCH;
+    CAMS.lx = CAMS.lz = 0;
+    CAM.tx = P.rx; CAM.tz = P.rz;
+    CAM.ty = Math.max(P.ry + .9, U_LEVEL.v + .65);
+    CAM.dist = CAMS.distT * (R.W < R.H ? 1.45 : 1);
+    CAMS.viewDist = FIRST_PERSON ? CAM.dist : cameraClearDistance(CAM.dist);
+    CAN.focus();
+  }
+  syncViewButtons();
+  return true;
 }
 function canAdjustCamera() { return G.mode === 'play' && !G.cine && !G.peek && !GUIDE.open && !topModal(); }
 function cancelCameraOrbit(e) {
@@ -6589,7 +6632,7 @@ function startClock() {
 // 오늘 하루의 상태 한 벌 (탐험 상태·항구 기준 상태에 같은 형식으로 씀)
 function expSnapshot(x = P.x, z = P.z, yaw = P.yaw) {
   return {
-    exp: SAVE.stats.exp, clock: G.clock ? 1 : 0, t: +G.time.toFixed(2), x: +x.toFixed(2), z: +z.toFixed(2), yaw: +yaw.toFixed(2), camYaw: CAMS.yawT, camPitch: CAMS.pitchT,
+    exp: SAVE.stats.exp, clock: G.clock ? 1 : 0, t: +G.time.toFixed(2), x: +x.toFixed(2), z: +z.toFixed(2), yaw: +yaw.toFixed(2), camYaw: CAMS.yawT, camFirst: FIRST_PERSON, camPitch: CAMS.pitchT,
     bag: G.bag.map(b => b.type),
     items: G.items.filter(i => i.alive).map(i => [i.type, +i.x.toFixed(2), +i.z.toFixed(2), i.seen ? 1 : 0, i.dropped ? 1 : 0, i.spring ? 1 : 0]),
     spots: G.spots.map(s => s.done ? 1 : 0), sealOpen: !!G.sealOpen, scoped: !!G.scoped,
@@ -6658,7 +6701,7 @@ function restoreExpState(es, quiet = false) {
   G.haulKinds = cleanHaulKinds(es.haulKinds);
   P.stam = clamp(num(es.stam ?? smax, smax), 0, smax); P.exhausted = !!es.ex && P.stam < smax * 0.35;
   CAMS.yawT = CAM.yaw = es.camYaw || 0; CAMS.yawV = 0;
-  CAM.pitch = CAMS.pitchT = clamp(es.camPitch ?? CAM_PITCH, CAM_PITCH_MIN, CAM_PITCH_MAX); CAMS.pitchV = 0;
+  CAM.pitch = CAMS.pitchT = clamp(!!es.camFirst === FIRST_PERSON ? es.camPitch ?? CAM_PITCH : CAM_PITCH, CAM_PITCH_MIN, CAM_PITCH_MAX); CAMS.pitchV = 0;
   // 시계가 돌기 전이면 항구 안으로 보고, 항구 밖으로 나가는 순간 시계가 시작되게 함
   G.inPort = G.clock ? atPort(P.x, P.z) : true;
   updateReturn();
@@ -7568,6 +7611,7 @@ function guidePages() {
         <p class="gBrief">물이 빠진 길을 따라 보물을 찾아요.<br><b>처음에는 항구 가까운 해변부터.</b></p>
         <div class="gActions"><div>${key(move)}<span>이동</span></div><div>${key(touch ? '달리기 버튼' : keyName('run'))}<span>달리기</span></div></div>
         <details class="gDetail"><summary>조작 더 보기</summary><ul>
+          <li>화면 위 시점 버튼${touch ? '' : ' 또는 ' + key(keyName('view'))}으로 1인칭과 3인칭을 바로 바꿔요.</li>
           <li>${touch ? '빈 화면을 손가락으로 쓸어 시점을 돌려요.' : '빈 화면을 마우스로 드래그해 시점을 돌려요.'}</li>
           <li>항구를 나서면 물때가 흐르기 시작해요. 달리면 체력이 줄고, 쉬면 다시 차요.</li>
           <li>${touch ? '🗺 버튼' : key(keyName('map'))} 섬 지도 · ${touch ? '가방 칸 누르기' : key(keyName('bag'))} 가방 · ${touch ? '⏸ 버튼' : key('Esc')} 일시정지</li>
@@ -8880,8 +8924,10 @@ function exportText() {
   if (G.mode !== 'title' && G.mode !== 'boot') saveProgress();   // 진행 중이면 최신 상태부터 담음
   return JSON.stringify({ format: SAVE_FORMAT, version: SAVE_FORMAT_VER, exportedAt: new Date().toISOString(), save: CH.on ? CH.main : SAVE });   // 도전 중에도 본 게임 진행을 내보냄
 }
-function exportFile() {
-  const txt = exportText(), d = new Date(), pad = n => String(n).padStart(2, '0');
+function exportFile(legacy = false) {
+  const raw = legacy ? legacyFirstSave() : null;
+  if (legacy && !raw) return;
+  const txt = legacy ? JSON.stringify({ format: SAVE_FORMAT, version: SAVE_FORMAT_VER, save: raw }) : exportText(), d = new Date(), pad = n => String(n).padStart(2, '0');
   const name = `sinking-island-save-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
   try {
     const url = URL.createObjectURL(new Blob([txt], { type: 'application/json' }));
@@ -8889,7 +8935,7 @@ function exportFile() {
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
     notice(`💾 ${name} 파일로 내보냈어요. 내려받기가 막힌 환경이면 '문자열로 복사'를 쓰세요.`, 'ok', 6);
-  } catch (e) { openSaveIO('export'); }
+  } catch (e) { if (legacy) notice('이전 저장 파일을 내려받지 못했어요.', 'warn', 5); else openSaveIO('export'); }
 }
 // 저장 데이터 검사 (불러오기용, 엄격): ① 전체를 읽은 문자열 ② 크기 제한 ③ 새 객체로 파싱 ④ 위험한 키·HTML·깊이·칸 수 검사
 // ⑤ 허용된 칸만 새 객체로 복사하며 모든 값 검증 → 하나라도 틀리면 적용하지 않음 (진행 중 탐험 상태만 깨졌으면 그 부분만 뺌)
@@ -8993,6 +9039,7 @@ function importFromFile(file) {
   fr.readAsText(file);
 }
 function openSettings() {
+  $('btnExportOldView').hidden = !legacyFirstSave();
   $('keyMsg').textContent = '';
   $('volMaster').value = SET.master; $('volMusic').value = SET.music; $('volSfx').value = SET.sfx;
   $('chkMute').checked = SET.mute; $('selShadow').value = SET.shadow; $('selRes').value = SET.res;
@@ -9066,6 +9113,7 @@ function applyUiScale() {
 }
 // 화면에 보이는 키 이름을 설정에 맞춤
 function applyKeyLabels() {
+  syncViewButtons();
   const k = keyName;
   const run = document.querySelector('#bagPanel .row.small span'); if (run && !TOUCH.dev) run.textContent = `달리기 체력 (${k('run')})`;
   $('imark').firstChild.textContent = TOUCH.dev ? 'E' : k('act');
@@ -9117,7 +9165,7 @@ function showEnding(first) {
    ========================================================= */
 const tick = () => new Promise(r => setTimeout(r, 0));
 // 빌드 식별자: 어떤 판을 실행 중인지 확인용 (화면 구석·설정·콘솔에만 표시, 저장·규칙과 무관)
-const BUILD_ID = 'Sinking Island build 2026-11-secret-route';
+const BUILD_ID = 'Sinking Island build 2026-11-shared-view';
 async function boot() {
   const say = t => { $('loadText').textContent = t; };
   console.info(BUILD_ID);
@@ -9433,7 +9481,7 @@ function resumeFromBackground() {
   LAST = performance.now(); ACC = 0;
   if (staleAgainst(storedMeta()) && G.mode !== 'title' && G.mode !== 'boot') enterReadOnly();
 }
-const ONCE_ACTIONS = ['act', 'bag', 'map', 'rotL', 'rotR', 'mute', 'help'];
+const ONCE_ACTIONS = ['act', 'bag', 'map', 'rotL', 'rotR', 'mute', 'help', 'view'];
 function releaseKeys() { for (const k in KEYS) KEYS[k] = false; cancelCameraOrbit(); }
 let INPUT_AT = 0;   // 마지막 키·포인터 입력 시각 (긴 멈춤 뒤 키를 놓을지 판단)
 function bindUI() {
@@ -9491,6 +9539,7 @@ function bindUI() {
     else if (keyIs('rotR', e.code)) rotateCam(-1);
     else if (keyIs('mute', e.code)) setMute(!SET.mute);
     else if (keyIs('help', e.code)) openHelp();
+    else if (keyIs('view', e.code)) toggleCameraView();
   });
   window.addEventListener('keyup', e => {
     KEYS[e.code] = false;
@@ -9547,9 +9596,9 @@ function bindUI() {
     confirmAsk(`🏝 오늘의 섬 도전 (${todayKey()})\n\n· 오늘 날짜의 섬에서 물때 한 번(약 5분) 동안 보물을 모아 항구 창구에서 정산한 금액이 기록이에요. 같은 날엔 누구나 같은 섬이에요.\n· 장비는 모두 1단계로 같아요. 상점·의뢰는 없어요.\n· 구조되면 기록이 절반이 돼요.\n· 본 게임 진행(돈·장비·도감)에는 영향이 없어요.${best !== null ? `\n\n오늘 최고 기록: ${best} G` : ''}\n\n도전을 시작할까요?`, () => startDaily());
   };
   $('btnGuideT').onclick = () => { SND.click(); $('title').classList.add('hidden'); openGuide(() => { if (G.mode === 'title') $('title').classList.remove('hidden'); }, false); };
-  if (FIRST_PERSON) { $('gameTitle').textContent = '잠기는 섬 · 1인칭'; document.title = '잠기는 섬 · 1인칭'; }
-  $('btnViewEdition').textContent = FIRST_PERSON ? '3인칭으로 플레이' : '1인칭으로 플레이';
-  $('btnViewEdition').onclick = () => { const u = new URL(location.href); if (FIRST_PERSON) u.searchParams.delete('view'); else u.searchParams.set('view', 'first-person'); location.assign(u.href); };
+  syncViewButtons();
+  $('btnViewEdition').onclick = () => { SND.click(); toggleCameraView(); };
+  $('btnView').onclick = () => { if (toggleCameraView()) SND.click(); };
   $('btnSettingsT').onclick = () => { SND.click(); openSettings(); };
   // 플레이 방법
   $('btnGuideNext').onclick = () => guideNav(1);
@@ -9599,6 +9648,7 @@ function bindUI() {
   $('btnSettingsClose').onclick = () => { SND.click(); closeSettings(); };
   $('btnGpuReload').onclick = () => { saveProgress(); location.reload(); };
   // 저장 데이터 내보내기·불러오기
+  $('btnExportOldView').onclick = () => exportFile(true);
   $('btnExportFile').onclick = () => { SND.click(); exportFile(); };
   $('btnExportText').onclick = () => { SND.click(); openSaveIO('export'); };
   $('btnImportText').onclick = () => { SND.click(); openSaveIO('import'); };
