@@ -33,6 +33,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sea);color:var(-
 /* HUD */
 #hud{position:fixed;inset:0;pointer-events:none;z-index:5}
 #hudTop{display:contents}
+#fpReticle{position:absolute;left:50%;top:50%;width:7px;height:7px;transform:translate(-50%,-50%);background:#fff4cf;border:1px solid #2c4144;border-radius:50%;box-shadow:0 0 5px #112932;pointer-events:none}
 #tidePanel{position:absolute;left:calc(14px + var(--safe-l));top:calc(14px + var(--safe-t));width:330px}
 #btnHarborFinish{pointer-events:auto;width:100%;margin-top:6px;min-height:36px;border:1px solid #90d5c3;border-radius:8px;background:#214d52;color:#f3fff6;font:inherit;font-weight:700;cursor:pointer}
 #btnHarborFinish:hover{background:#306368}
@@ -707,6 +708,7 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
     <button type="button" id="btnHarborFinish" hidden>오늘 탐험 마치기</button>
   </div>
   <div id="objective" class="card"></div>
+  <div id="fpReticle" hidden aria-hidden="true"></div>
   <div id="statusPanel">
     <div class="card" id="goldBox">💰 0 G</div>
     <div class="card" id="relicBox"><i>◇◇◇</i> <span>유물 0/3</span></div>
@@ -847,6 +849,7 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
       <button class="btn ghost" id="btnDaily" hidden>🏝 오늘의 섬 도전</button>
       <button class="btn ghost" id="btnGuideT">플레이 방법</button>
       <button class="btn ghost" id="btnSettingsT">설정</button>
+      <button class="btn ghost" id="btnViewEdition">1인칭으로 플레이</button>
     </nav>
   </div>
 </div>
@@ -951,6 +954,8 @@ window.addEventListener('unhandledrejection', function (e) {
    1. 유틸리티
    ========================================================= */
 const $ = id => document.getElementById(id);
+const FIRST_PERSON = /(?:^|[?&])view=first-person(?:&|$)/.test(globalThis.location?.search || '');
+const FP_PITCH = .12, FP_MIN = -Math.PI / 3, FP_MAX = Math.PI * .4;
 // 바뀐 경우에만 DOM에 씀 (같은 내용을 매번 다시 쓰면 화면 정보 배치를 다시 계산함)
 function setHTML(el, h) { if (el._h !== h) { el._h = h; el.innerHTML = h; } }
 function setText(el, t) { if (el._t !== t) { el._t = t; el.textContent = t; } }
@@ -1204,7 +1209,7 @@ const DEX_WHERE = {
 /* =========================================================
    3. 저장과 설정
    ========================================================= */
-const SAVE_KEY = 'sinking-island-save-v1';
+const SAVE_KEY = FIRST_PERSON ? 'sinking-island-first-person-save-v1' : 'sinking-island-save-v1';
 const SET_KEY = 'sinking-island-settings-v1';
 function newGid() { return (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)).slice(0, 16); }
 function defaultSave() {
@@ -1359,7 +1364,7 @@ function cleanSave(raw, strict) {
     const fin = (v, lo, hi, def) => (isNum(v) && v >= lo && v <= hi ? v : def);
     return {
       exp: es.exp, clock: es.clock === undefined ? 1 : (es.clock ? 1 : 0), t: es.t, x: es.x, z: es.z, yaw: fin(es.yaw, -1e4, 1e4, 0), camYaw: fin(es.camYaw, -1e4, 1e4, 0),
-      camPitch: fin(es.camPitch, Math.PI / 12, Math.PI * 17 / 36, .8),
+      camPitch: fin(es.camPitch, CAM_PITCH_MIN, CAM_PITCH_MAX, CAM_PITCH),
       haulKinds: cleanHaulKinds(es.haulKinds),
       bag: es.bag.slice(), items: es.items.map(it => [it[0], it[1], it[2], it[3] ? 1 : 0, it[4] ? 1 : 0, it[5] ? 1 : 0]),
       spots: (es.spots || []).map(v => (v ? 1 : 0)), sealOpen: !!es.sealOpen, scoped: !!es.scoped,
@@ -3173,21 +3178,28 @@ function visCaster(B) {
 }
 
 /* ---------- 카메라 ---------- */
+function firstPersonView() { return FIRST_PERSON && G.mode !== 'title' && G.mode !== 'boot' && !G.cine && !G.peek; }
 function updateCamera() {
-  const scripted = G.mode === 'title' || G.cine || G.peek;
+  const scripted = G.mode === 'title' || G.mode === 'boot' || G.cine || G.peek;
+  const first = firstPersonView();
   const dist = scripted ? CAM.dist : Math.min(CAM.dist, CAMS.viewDist);
   const cp = Math.cos(CAM.pitch), sp = Math.sin(CAM.pitch);
   CAM.ex = CAM.tx + Math.sin(CAM.yaw) * cp * dist;
   CAM.ey = CAM.ty + sp * dist;
   CAM.ez = CAM.tz + Math.cos(CAM.yaw) * cp * dist;
   // 바로 뒤에 절벽이 있어 최소 거리까지 줄여도 겹치는 경우에는 눈높이도 확보한다.
-  if (!scripted) {
+  if (!scripted && !first) {
     const lastPad = GP;
     CAM.ey = Math.max(CAM.ey, groundAt(CAM.ex, CAM.ez) + .55, U_LEVEL.v + .5);
     GP = lastPad;
   }
-  M4.lookAt(VIEW, CAM.ex, CAM.ey, CAM.ez, CAM.tx, CAM.ty, CAM.tz);
-  M4.perspective(PROJ, CAM.fov, R.W / R.H, 1.5, 420);
+  if (first) {
+    CAM.ex = P.rx; CAM.ez = P.rz;
+    CAM.ey = Math.max(P.ry + 1.62, U_LEVEL.v + .25);
+    M4.lookAt(VIEW, CAM.ex, CAM.ey, CAM.ez,
+      CAM.ex - Math.sin(CAM.yaw) * cp, CAM.ey - sp, CAM.ez - Math.cos(CAM.yaw) * cp);
+  } else M4.lookAt(VIEW, CAM.ex, CAM.ey, CAM.ez, CAM.tx, CAM.ty, CAM.tz);
+  M4.perspective(PROJ, first ? (R.W < R.H ? 74 : 58) * Math.PI / 180 : CAM.fov, R.W / R.H, first ? .08 : 1.5, 420);
   M4.mul(VP, PROJ, VIEW);
   // 그림자용 빛 카메라: 고정된 방향, 초점 위치를 텍셀 단위로 맞춰 떨림 방지
   M4.lookAt(LVIEW, SUN_DIR[0] * 100, SUN_DIR[1] * 100, SUN_DIR[2] * 100, 0, 0, 0, 0, 1, 0);
@@ -5252,7 +5264,7 @@ function fxUpload(time) {
     put4(D.d[1], m, 0.14, 0.22, a, 0);
     m++;
   }
-  if (G.mode !== 'title' && G.mode !== 'boot' && P.vis !== false) {
+  if (G.mode !== 'title' && G.mode !== 'boot' && P.vis !== false && !firstPersonView()) {
     const gy = P.ground;
     if (gy > U_LEVEL.v - 0.05) { put4(D.d[0], m, P.rx, gy + 0.04, P.rz, 0); put4(D.d[1], m, 0.55, 0.5, 0.42, 2); m++; }
     const ry = Math.max(gy, U_LEVEL.v) + 0.05;
@@ -5684,7 +5696,7 @@ function updatePlayerModel(alpha, dt, time) {
   const fill = G.bag ? bagUsed() / Math.max(1, upVal('bag')) : 0;
   const ps = 0.85 + fill * 0.45;
   M4.mul(PM.pack.m, _pm, M4.compose(_pl, 0, 1.12 - pick * 0.15, -0.27 - fill * 0.06, pick * 0.3, 0, 0, ps, ps, ps));
-  for (const k in PM) PM[k].vis = P.vis;
+  for (const k in PM) PM[k].vis = P.vis && !firstPersonView();
 }
 function inputVec() {
   let x = 0, y = 0;
@@ -5819,8 +5831,8 @@ function surfaceAt(x, z) {
   return h > 2.8 ? 'grass' : 'sand';
 }
 // 카메라: 진행 방향 앞쪽을 더 보여 주며 부드럽게 따라감
-const CAM_PITCH = 0.8, CAM_DIST = 35;   // 등각 투영에 가까운 기본 시점
-const CAM_PITCH_MIN = Math.PI / 12, CAM_PITCH_MAX = Math.PI * 17 / 36;   // 15°~85°
+const CAM_PITCH = FIRST_PERSON ? FP_PITCH : .8, CAM_DIST = 35;   // 등각 투영에 가까운 기본 시점
+const CAM_PITCH_MIN = FIRST_PERSON ? FP_MIN : Math.PI / 12, CAM_PITCH_MAX = FIRST_PERSON ? FP_MAX : Math.PI * 17 / 36;   // 15°~85°
 const CAMS = { distT: CAM_DIST, viewDist: CAM_DIST, shake: 0, lx: 0, lz: 0, yawT: 0, yawV: 0, pitchT: CAM_PITCH, pitchV: 0 };
 const ORBIT = { id: null, x: 0, y: 0, dragging: false, sensitivity: .003 };
 // 임계 감쇠의 해를 써 프레임 수와 무관하게 회전 속도와 가속을 연속으로 잇는다.
@@ -5905,7 +5917,7 @@ function updateFollowCam(dt) {
   if (ORBIT.id !== null && !canAdjustCamera()) cancelCameraOrbit();
   if (G.peek) {
     // 장치·유물 연출은 기존 구도로 보여 주고, 끝나면 사용자가 고른 각도로 돌아간다.
-    CAM.pitch += (CAM_PITCH - CAM.pitch) * damp(5, dt); CAMS.pitchV = 0;
+    CAM.pitch += ((FIRST_PERSON ? .8 : CAM_PITCH) - CAM.pitch) * damp(5, dt); CAMS.pitchV = 0;
     const pk = G.peek;
     const k = pk.t < pk.inT ? smooth(0, 1, pk.t / pk.inT) : pk.t > pk.dur - pk.outT ? smooth(0, 1, (pk.dur - pk.t) / pk.outT) : 1;
     const tx = lerp(P.rx, pk.x, k), ty = lerp(P.ry, pk.y, k), tz = lerp(P.rz, pk.z, k);
@@ -5933,7 +5945,7 @@ function updateFollowCam(dt) {
     const s = CAMS.shake * 0.35;
     CAM.tx += (Math.random() - 0.5) * s; CAM.tz += (Math.random() - 0.5) * s;
   }
-  if (G.cine || G.peek) CAMS.viewDist = CAM.dist;
+  if (G.cine || G.peek || firstPersonView()) CAMS.viewDist = CAM.dist;
   else updateCameraClearance(dt);
 }
 function peekAt(x, y, z, dur = 3.2, o = {}) {
@@ -6496,7 +6508,7 @@ function harborGoal() {
   return { ...goal, count, met: count >= goal.target };
 }
 function canFinishHarborDay() {
-  return G.mode === 'play' && !G.cine && !G.peek && !G.dayDone && !CH.on && !SAVE_IO.readonly && G.clock && atPort(P.x, P.z);
+  return G.mode === 'play' && !G.cine && !G.peek && !G.dayDone && !CH.on && !SAVE_IO.readonly && G.clock && G.expItems > 0 && CFG.T - G.time <= 90 && atPort(P.x, P.z);
 }
 function askFinishHarborDay() {
   if (!canFinishHarborDay() || topModal()) return;
@@ -6570,6 +6582,8 @@ function startClock() {
   if (G.clock) return;
   G.clock = true;
   toast('🌊 물때가 흐르기 시작했어요', 'info', 2.6);
+  const secret = COAST.bridges.find(b=>b.id==='secret');
+  if (secret && secretChestVisible(secret)) later(1.2,()=>toast(`🗝 지도에 썰물 비밀길 · 오늘 상자: ${TREASURES[secretReward()].name}`, 'info', 4));
   tut('leave');
 }
 // 오늘 하루의 상태 한 벌 (탐험 상태·항구 기준 상태에 같은 형식으로 씀)
@@ -7488,10 +7502,15 @@ function renderMapSide() {
     return `<li class="${st.cls}"><span><i class="zn" style="background:${st.col}">${n + 1}</i>${FLOOD_ZONES[zi].name}</span><b>${st.long}</b></li>`;
   }).join('');
   const nxt = tideOfDay(SAVE.stats.exp + 1);
+  const secret = COAST.bridges.find(b=>b.id==='secret');
+  const rumor = secret && !CH.on && SAVE.stats.exp>0
+    ? `<p class="mdesc"><b>🗝 썰물 비밀길</b> · ${secret.pad.on ? fmtTime(secretCloseTime(secret)-t)+' 뒤 닫혀요.' : '지금은 닫혔어요.'} ${coastData(false)?.secretDay===SAVE.stats.exp ? '오늘 상자는 열었어요.' : '오늘 상자: '+TREASURES[secretReward()].name+'.'} </p>`
+    : '';
   $('mapSide').innerHTML = `
     <div class="mtide">${dayChips(TIDE, WEATHER)}<span>${tm}</span></div>
     <p class="mdesc">${TIDE.desc}${WEATHER.id !== 'clear' ? ' ' + WEATHER.desc : ''}</p>
     <div class="mret">${ret}</div>
+    ${rumor}
     <h4>오늘의 침수 일정</h4><ul class="mflood">${rows}</ul>
     <h4>탐험</h4><div class="mexp"><div class="bar"><i style="width:${(expFrac() * 100).toFixed(1)}%"></i></div><span>섬 발견 <b>${Math.floor(expFrac() * 100)}%</b></span></div>
     <p class="mdesc">다음 탐험: ${nxt.icon} <b>${nxt.name}</b>${weatherOfDay(SAVE.stats.exp + 1).id !== 'clear' ? ` · ${weatherOfDay(SAVE.stats.exp + 1).icon} <b>${weatherOfDay(SAVE.stats.exp + 1).name}</b>` : ''}</p>
@@ -7552,7 +7571,7 @@ function guidePages() {
           <li>${touch ? '빈 화면을 손가락으로 쓸어 시점을 돌려요.' : '빈 화면을 마우스로 드래그해 시점을 돌려요.'}</li>
           <li>항구를 나서면 물때가 흐르기 시작해요. 달리면 체력이 줄고, 쉬면 다시 차요.</li>
           <li>${touch ? '🗺 버튼' : key(keyName('map'))} 섬 지도 · ${touch ? '가방 칸 누르기' : key(keyName('bag'))} 가방 · ${touch ? '⏸ 버튼' : key('Esc')} 일시정지</li>
-          <li>${touch ? '반짝이는 것에 다가가면 E 버튼에 지금 할 일이 떠요.' : `${key(keyName('rotL'))} ${key(keyName('rotR'))} 화면 90° 회전 · 마우스 휠로 확대·축소. 조작 키는 설정에서 바꿀 수 있어요.`}</li>
+          <li>${touch ? '반짝이는 것에 다가가면 E 버튼에 지금 할 일이 떠요.' : `${key(keyName('rotL'))} ${key(keyName('rotR'))} 화면 90° 회전${FIRST_PERSON ? '' : ' · 마우스 휠로 확대·축소'}. 조작 키는 설정에서 바꿀 수 있어요.`}</li>
           <li>나침반의 붉은 N은 북쪽, 얼굴 표시는 내가 바라보는 방향이에요.</li>
         </ul></details>`,
     },
@@ -7576,7 +7595,7 @@ function guidePages() {
         <details class="gDetail"><summary>항구 이용과 주의할 점</summary><ul>
           <li>사무소에서 보물을 팔고, 공방에서 장비와 물건을 사요. 의뢰는 게시판에서 전달해요.</li>
           <li>전시실은 전시·도감, 부두 끝 왼쪽 기록대는 탐험 기록을 보여 줘요. 전시품마다 하루 10 G씩 10일 받아요.</li>
-          <li>항구로 돌아오면 물때 표시 아래 <b>오늘 탐험 마치기</b>를 눌러 다음 날로 넘어갈 수 있어요. 둘째 날부터 항구 보너스에 도전할 수 있어요.</li>
+          <li>보물을 하나 이상 줍고 만조까지 1분 30초 이하일 때 항구에 있으면, 물때 표시 아래 <b>오늘 탐험 마치기</b> 버튼이 떠요. 둘째 날부터 항구 보너스에 도전할 수 있어요.</li>
           <li>밀물에 갇혀 구조되면 기본 구조비는 소지금의 절반이에요. 일반 보물과 장비는 남지만, 유리 유물은 깨져요.</li>
           <li>낮은 길은 먼저 잠겨요. 날마다 물때·날씨·보물 위치가 바뀌니 귀환 여유를 확인하세요.</li>
         </ul></details>`,
@@ -7797,7 +7816,7 @@ function updateCompass() {
       el.style.top = (50 - 24 * Math.cos(a)).toFixed(2) + '%';
     });
   }
-  const facing = Math.round(compassAngle(Math.PI - P.yawV + CAM.yaw) * 10) / 10;
+  const facing = firstPersonView() ? 0 : Math.round(compassAngle(Math.PI - P.yawV + CAM.yaw) * 10) / 10;
   if (UI.compassFacing !== facing) {
     UI.compassFacing = facing;
     $('compassPlayer').style.transform = `rotate(${facing}deg)`;
@@ -7807,6 +7826,7 @@ function updateCompass() {
 // 매 프레임 HUD (글자는 0.1초마다)
 function hudUpdate(dt) {
   updateCompass();
+  $('fpReticle').hidden = !(firstPersonView() && G.mode === 'play');
   // 소지금은 숫자가 차오르듯 바뀜
   if (UI.goldShown === null) UI.goldShown = SAVE.gold;
   if (UI.goldShown !== SAVE.gold) {
@@ -8279,7 +8299,7 @@ const COAST = { bridges: [], marks: [], regions: [
   ['east', '동쪽 해안', 14, 24, 10], ['north', '북쪽 유적', -2, -28, 12],
   ['west', '서쪽 능선', -24, 4, 10], ['wreck', '난파선 일대', WRECK.x, WRECK.z, 9],
 ], events: { east:'동쪽 해안 발견', north:'북쪽 유적 발견', west:'서쪽 능선 발견', wreck:'난파선 일대 발견',
-  tide:'밀물 지름길 이용', storm:'폭풍이 남긴 통나무 다리 이용', store:'해변 보관함에 보물 보관',
+  secret:'썰물 비밀길의 상자 획득', tide:'밀물 지름길 이용', storm:'폭풍이 남긴 통나무 다리 이용', store:'해변 보관함에 보물 보관',
   map1:'첫 번째 지도 조각 발견', map2:'두 번째 지도 조각 발견', cache:'숨은 보물 상자 발견',
   cargo:'유리 유물 획득', cracked:'유리 유물에 금이 감', sold:'유리 유물을 항구에 전달', signal:'구조 신호 의뢰 완료' } };
 function cleanCoast(raw, day) {
@@ -8289,6 +8309,7 @@ function cleanCoast(raw, day) {
     pieces: Number.isInteger(r.pieces) && r.pieces >= 0 && r.pieces <= 3 ? r.pieces : 0,
     cache: r.cache === true && r.pieces === 3,
     cargo: r.cargo === 'intact' || r.cargo === 'cracked' ? r.cargo : '',
+    secretDay: Number.isInteger(r.secretDay) && r.secretDay >= 0 && r.secretDay <= day ? r.secretDay : -1,
     cargoDay: Number.isInteger(r.cargoDay) && r.cargoDay >= 0 && r.cargoDay <= day ? r.cargoDay : -1,
     journal: Array.isArray(r.journal) ? r.journal.filter(a => Array.isArray(a) && typeof a[0] === 'string' &&
       Object.hasOwn(COAST.events, a[0]) && Number.isInteger(a[1]) && a[1] >= 0 && a[1] <= day)
@@ -8372,13 +8393,32 @@ function useCoastMark(m) {
   }
   coastLog(m.id); requestSave();
 }
+const SECRET_WINDOW = 100;
+function secretCloseTime(b) { return Math.min(SECRET_WINDOW, tideTimeFor(b.top - .12)); }
+function secretReward(day = SAVE.stats.exp) { return ['compass', 'chalice', 'coral'][day % 3]; }
+function secretChestVisible(b) {
+  return !G.dayDone && coastBridgeOpen(b) && coastData(false)?.secretDay !== SAVE.stats.exp;
+}
+function takeSecretChest(b) {
+  if (G.mode !== 'play' || G.cine || SAVE_IO.readonly || !secretChestVisible(b) ||
+      Math.hypot(P.x-b.x,P.z-b.z)>1.6 || Math.abs(P.y-b.top)>.8) return false;
+  const type = secretReward(), t = TREASURES[type];
+  if (bagUsed()+t.size>upVal('bag')) { toast(`가방에 ${t.size}칸이 필요해요.`, 'info', 2.2); return false; }
+  const c = coastData();
+  c.secretDay = SAVE.stats.exp;
+  pickupItem(spawnItem(type,b.x,b.z,b.top));
+  coastLog('secret');
+  toast(`🗝 썰물 상자에서 ${t.name} 발견!`, 'good', 3);
+  return true;
+}
 function coastBridgeOpen(b, water = U_LEVEL.v, day = SAVE.stats.exp) {
   if (CH.on) return false;
+  if (b.id === 'secret') return day > 0 && G.time < SECRET_WINDOW && water < b.top - .12;
   return b.id === 'storm' ? day > 0 && weatherOfDay(day-1).id === 'storm' && water < b.top - .12
     : water >= b.top - .70 && water < b.top - .12;
 }
 function limitCoastNav(b) {
-  const {x0,x1,z0,z1}=b.pad, close=tideTimeFor(b.top-.12);
+  const {x0,x1,z0,z1}=b.pad, close=b.id==='secret'?secretCloseTime(b):tideTimeFor(b.top-.12);
   for(let j=Math.ceil((z0-NAV.z0)/NAV.cell);j<=Math.floor((z1-NAV.z0)/NAV.cell);j++)
     for(let i=Math.ceil((x0-NAV.x0)/NAV.cell);i<=Math.floor((x1-NAV.x0)/NAV.cell);i++){
       const k=j*NAV.nx+i;
@@ -8398,6 +8438,7 @@ function syncCoastBridges() {
     }
     const rising=!CH.on && b.id==='tide' && U_LEVEL.v>=b.top-1.10 && U_LEVEL.v<b.top-.70;
     b.mesh.vis = open || rising;
+    if (b.chest) b.chest.vis = G.mode !== 'title' && secretChestVisible(b);
     if(b.mesh.vis) M4.compose(b.mesh.m,b.x,open?b.top:U_LEVEL.v+.70,b.z,0,0,0);
   }
 }
@@ -8464,24 +8505,38 @@ function buildCoastExpansion() {
     }
   }
   candidates.sort((a,b)=>b.score-a.score);
-  for (const {a,b,top,len} of candidates) {
+  for (const secretPass of [false,true]) for (const {a,b,top,len} of candidates) {
+    if (!secretPass && COAST.bridges.length===2) break;
     const x=(a.x+b.x)/2,z=(a.z+b.z)/2;
     if (COAST.bridges.some(q=>Math.hypot(q.x-x,q.z-z)<8)) continue;
-    const id=COAST.bridges.length ? 'storm':'tide', wide=a.x!==b.x;
-    const oldPath=navPath(a.x,a.z,b.x,b.z,id==='tide'?top-.4:CFG.WL);
-    if(oldPath && oldPath.length < len+4) continue;
+    const id=secretPass?'secret':COAST.bridges.length?'storm':'tide', wide=a.x!==b.x;
+    if (id!=='secret') {
+      const oldPath=navPath(a.x,a.z,b.x,b.z,id==='tide'?top-.4:CFG.WL);
+      if(oldPath && oldPath.length < len+4) continue;
+    }
     const sx=wide?len+.7:2, sz=wide?2:len+.7;
-    const pad=addPad(x-sx/2,x+sx/2,z-sz/2,z+sz/2,top,'wood',{shore:false,solidBelow:false});
+    const pad=addPad(x-sx/2,x+sx/2,z-sz/2,z+sz/2,top,id==='secret'?'stone':'wood',{shore:false,solidBelow:false});
     const pass=navEdgeOK(a.x,a.z,b.x,b.z)&&navEdgeOK(b.x,b.z,a.x,a.z);
     pad.on=false;
     if(!pass) continue;
     const key='tmpCoast'+id;
-    blk(key,0,-.22,0,sx,.22,sz,id==='tide'?0xb28246:0x806044);
-    for(let i=.3;i<len+.35;i+=.55) blk(key,wide?i-len/2:0,-.05,wide?0:i-len/2,wide?.10:sx,.05,wide?sz:.10,0x564131);
+    blk(key,0,-.22,0,sx,.22,sz,id==='secret'?0x83aaa4:id==='tide'?0xb28246:0x806044);
+    for(let i=.3;i<len+.35;i+=.55) blk(key,wide?i-len/2:0,-.05,wide?0:i-len/2,wide?.10:sx,.05,wide?sz:.10,id==='secret'?0x527a74:0x564131);
     const mesh=dynFrom(key,{mat:'solid'});
     M4.compose(mesh.m,x,top,z,0,0,0); mesh.vis=false;
-    COAST.bridges.push({id,x,z,top,pad,mesh,a,b});
-    if(COAST.bridges.length===2) break;
+    const bridge={id,x,z,top,pad,mesh,a,b};
+    COAST.bridges.push(bridge);
+    if(id==='secret') {
+      const key='tmpSecretChest';
+      blk(key,0,.28,0,1.05,.56,.7,0x27585a,{r:.08});
+      blk(key,0,.56,0,1.12,.16,.75,0xd5a454,{r:.045});
+      blk(key,0,.37,.37,.16,.20,.06,0xffde8a);
+      bridge.chest=dynFrom(key,{mat:'solid'});
+      M4.compose(bridge.chest.m,x,top,z,0,0,0); bridge.chest.vis=false;
+      addInter({x,z,y:top,r:1.6,dy:.8,prio:5,name:'썰물 비밀길 상자',act:'상자 열기',
+        mk:[x,top+1,z],on:()=>secretChestVisible(bridge),use:()=>takeSecretChest(bridge)});
+      break;
+    }
   }
 }
 function tickCoast() {
@@ -8489,8 +8544,14 @@ function tickCoast() {
   for (const [id,,x,z,r] of COAST.regions)
     if (Math.hypot(P.x-x,P.z-z)<r) coastLog(id,true);
   if (U_LEVEL.v-P.y >= CFG.DANGER || P.sunk) damageCoastCargo();
+  const secret = COAST.bridges.find(b=>b.id==='secret');
+  if (secret?.pad.on && !G.warned.secretClose && secretCloseTime(secret)-G.time <= 20 &&
+      Math.hypot(P.x-secret.x,P.z-secret.z)<18) {
+    G.warned.secretClose=true;
+    toast('⚠ 썰물 비밀길이 곧 잠겨요. 가까운 쪽 둑으로 건너가세요.', 'warn', 4);
+  }
   for (const b of COAST.bridges)
-    if (b.pad.on && Math.hypot(P.x-b.x,P.z-b.z)<1 && Math.abs(P.y-b.top)<.5) coastLog(b.id);
+    if (b.id!=='secret' && b.pad.on && Math.hypot(P.x-b.x,P.z-b.z)<1 && Math.abs(P.y-b.top)<.5) coastLog(b.id);
 }
 function drawCoastMap(g,project,s) {
   if (CH.on) return;
@@ -8503,11 +8564,16 @@ function drawCoastMap(g,project,s) {
     else if(s>.65 && m.id.startsWith('map')) label(m.x+2,m.z-2,'🗺 ?');
   }
   for (const b of COAST.bridges) {
+    if (b.id==='secret' && SAVE.stats.exp<1) continue;
     if (b.id==='storm' && !(SAVE.stats.exp>0 && weatherOfDay(SAVE.stats.exp-1).id==='storm')) continue;
     const [a,c]=project(b.a.x,b.a.z),[d,e]=project(b.b.x,b.b.z);
     g.beginPath();g.moveTo(a,c);g.lineTo(d,e);g.strokeStyle=b.pad.on?'#84f7bc':'#ffcd72';g.lineWidth=3*s;
     g.setLineDash(b.pad.on?[]:[4*s,3*s]);g.stroke();g.setLineDash([]);
     const eta=tideTimeFor(b.top-.70)-G.time;
+    if (b.id==='secret') {
+      label(b.x,b.z-2,b.pad.on?(s>.65?`비밀길 · ${fmtTime(secretCloseTime(b)-G.time)} 남음`:'🗝'):(s>.65?'비밀길 닫힘':'·'));
+      continue;
+    }
     label(b.x,b.z-2,b.id==='storm'?(b.pad.on?'통나무 다리':'통나무 다리 잠김'):
       b.pad.on?'밀물 지름길 열림':eta>0?`밀물길 ${fmtTime(eta)} 뒤`:'밀물 지름길 닫힘');
   }
@@ -8861,7 +8927,7 @@ function askImport(text) {
   return v;
 }
 // 불러오기 적용 (원자적): ⑥ 현재 저장을 임시 백업 ⑦ 새 저장 기록 ⑧ 게임 다시 준비 ⑨ 확인 ⑩ 하나라도 실패하면 원래 저장으로 완전히 되돌림
-const SAVE_BACKUP_KEY = 'sinking-island-save-v1-before-import';
+const SAVE_BACKUP_KEY = SAVE_KEY + '-before-import';
 function applyImportedSave(clean) {
   if (CH.on) { exitDaily(); showTitle(); }   // 도전 중이면 도전을 끝내고 타이틀로 (도전 상태가 본 게임 저장에 섞이지 않게)
   flushSave(); if (G.mode !== 'title' && G.mode !== 'boot') saveProgress();   // 지금 진행을 먼저 기록해 두어야 되돌릴 때 그대로 돌아옴
@@ -9051,7 +9117,7 @@ function showEnding(first) {
    ========================================================= */
 const tick = () => new Promise(r => setTimeout(r, 0));
 // 빌드 식별자: 어떤 판을 실행 중인지 확인용 (화면 구석·설정·콘솔에만 표시, 저장·규칙과 무관)
-const BUILD_ID = 'Sinking Island build 2026-11-harbor-goals';
+const BUILD_ID = 'Sinking Island build 2026-11-secret-route';
 async function boot() {
   const say = t => { $('loadText').textContent = t; };
   console.info(BUILD_ID);
@@ -9274,7 +9340,7 @@ function envUpdate() {
   if (WORLD.beacon) WORLD.beacon.a = G.mode === 'title' ? 0.3 : Math.max(smooth(0.35, 0.9, G.time / CFG.T) * 0.95, (SAVE.light | 0) >= 2 ? 0.45 : 0, night && lightDone() ? 1 : 0);
 }
 function seeThroughUpdate() {
-  if (G.mode === 'title' || G.mode === 'boot') { R.seeOn = 0; return; }
+  if (G.mode === 'title' || G.mode === 'boot' || firstPersonView()) { R.seeOn = 0; return; }
   updateCamera();
   const c = xform(VP, P.rx, P.ry + 0.9, P.rz);
   if (c[3] <= 0) { R.seeOn = 0; return; }
@@ -9466,7 +9532,7 @@ function bindUI() {
   window.addEventListener('resize', () => { resizeGL(); if (G.mode === 'map') drawBigMap(); applyUiScale(); if (SET.mm != null) scheduleMinimapCanvas(); });
   // 두 손가락으로 화면 전체가 확대되지 않게 (iOS Safari는 touch-action만으로는 막히지 않아 gesture 이벤트도 막음)
   for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
-  CAN.addEventListener('wheel', e => { e.preventDefault(); if (canAdjustCamera()) CAMS.distT = clamp(CAMS.distT + e.deltaY * 0.02, 22, 52); }, { passive: false });
+  CAN.addEventListener('wheel', e => { e.preventDefault(); if (!FIRST_PERSON && canAdjustCamera()) CAMS.distT = clamp(CAMS.distT + e.deltaY * 0.02, 22, 52); }, { passive: false });
   // 타이틀: 새 게임은 언제나, 이어하기는 처음 한 번 플레이 방법을 먼저 보여 줌
   const begin = isNew => { $('title').classList.add('hidden'); openGuide(() => startGame(isNew), true); };
   $('btnContinue').onclick = () => { SND.click(); if (SET.guideSeen) startGame(false); else begin(false); };
@@ -9481,6 +9547,9 @@ function bindUI() {
     confirmAsk(`🏝 오늘의 섬 도전 (${todayKey()})\n\n· 오늘 날짜의 섬에서 물때 한 번(약 5분) 동안 보물을 모아 항구 창구에서 정산한 금액이 기록이에요. 같은 날엔 누구나 같은 섬이에요.\n· 장비는 모두 1단계로 같아요. 상점·의뢰는 없어요.\n· 구조되면 기록이 절반이 돼요.\n· 본 게임 진행(돈·장비·도감)에는 영향이 없어요.${best !== null ? `\n\n오늘 최고 기록: ${best} G` : ''}\n\n도전을 시작할까요?`, () => startDaily());
   };
   $('btnGuideT').onclick = () => { SND.click(); $('title').classList.add('hidden'); openGuide(() => { if (G.mode === 'title') $('title').classList.remove('hidden'); }, false); };
+  if (FIRST_PERSON) { $('gameTitle').textContent = '잠기는 섬 · 1인칭'; document.title = '잠기는 섬 · 1인칭'; }
+  $('btnViewEdition').textContent = FIRST_PERSON ? '3인칭으로 플레이' : '1인칭으로 플레이';
+  $('btnViewEdition').onclick = () => { const u = new URL(location.href); if (FIRST_PERSON) u.searchParams.delete('view'); else u.searchParams.set('view', 'first-person'); location.assign(u.href); };
   $('btnSettingsT').onclick = () => { SND.click(); openSettings(); };
   // 플레이 방법
   $('btnGuideNext').onclick = () => guideNav(1);
