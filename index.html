@@ -34,6 +34,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sea);color:var(-
 #hud{position:fixed;inset:0;pointer-events:none;z-index:5}
 #hudTop{display:contents}
 #tidePanel{position:absolute;left:calc(14px + var(--safe-l));top:calc(14px + var(--safe-t));width:330px}
+#btnHarborFinish{pointer-events:auto;width:100%;margin-top:6px;min-height:36px;border:1px solid #90d5c3;border-radius:8px;background:#214d52;color:#f3fff6;font:inherit;font-weight:700;cursor:pointer}
+#btnHarborFinish:hover{background:#306368}
 #tideTop{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700}
 #tidePhase{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 #tideTime{font-size:21px;font-variant-numeric:tabular-nums;white-space:nowrap;flex:none}
@@ -702,6 +704,7 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
     <div id="tideGauge"><div id="tideFill"></div><div id="tideMarks"></div></div>
     <div id="nextFlood"></div>
     <div id="returnStat"></div>
+    <button type="button" id="btnHarborFinish" hidden>오늘 탐험 마치기</button>
   </div>
   <div id="objective" class="card"></div>
   <div id="statusPanel">
@@ -1357,6 +1360,7 @@ function cleanSave(raw, strict) {
     return {
       exp: es.exp, clock: es.clock === undefined ? 1 : (es.clock ? 1 : 0), t: es.t, x: es.x, z: es.z, yaw: fin(es.yaw, -1e4, 1e4, 0), camYaw: fin(es.camYaw, -1e4, 1e4, 0),
       camPitch: fin(es.camPitch, Math.PI / 12, Math.PI * 17 / 36, .8),
+      haulKinds: cleanHaulKinds(es.haulKinds),
       bag: es.bag.slice(), items: es.items.map(it => [it[0], it[1], it[2], it[3] ? 1 : 0, it[4] ? 1 : 0, it[5] ? 1 : 0]),
       spots: (es.spots || []).map(v => (v ? 1 : 0)), sealOpen: !!es.sealOpen, scoped: !!es.scoped,
       earn: fin(es.earn, 0, SAVE_LIM.goldMax, undefined), picked: fin(es.picked, 0, 1000, undefined), stam: fin(es.stam, 0, 1000, undefined), ex: es.ex ? 1 : 0,
@@ -6441,6 +6445,11 @@ function pickupItem(it, fromDig = false) {
   it.alive = false; it.fly = 0.001;
   Bag.add(it.type);
   G.expItems++; SAVE.stats.items++;
+  if (!CH.on && !it.dropped) {
+    const type = T.base || it.type;
+    const kinds = G.haulKinds || (G.haulKinds = []);
+    if (!kinds.includes(type)) kinds.push(type);
+  }
   const firstFind = !CH.on && !SAVE.dex[it.type];   // 도전 중 새로 찾은 보물은 본 게임 도감에 남지 않으므로 알리지 않음
   SAVE.dex[it.type] = (SAVE.dex[it.type] || 0) + 1;
   floatText(it.x, it.y + 1.4, it.z, `+${priceOf(it.type)} G${isHot(it.type) ? ' 📈' : ''}`, 'gold');
@@ -6471,10 +6480,37 @@ function rareFound(it, T) {
   if (RARE_TYPES.every(t => SAVE.dex[t])) award('rare5');
 }
 /* ---------- 탐험 시작과 끝 ---------- */
+// 서버 기록과 별개인 본편의 선택형 보너스. 해당 탐험 번호로 정해져 재접속해도 유지된다.
+const HARBOR_GOALS = [
+  { name: '골고루 탐험', target: 3, reward: 20, unit: '종', task: '서로 다른 보물 3종 발견', count: () => (G.haulKinds || []).length },
+  { name: '든든한 정산', target: 65, reward: 25, unit: ' G', task: '보물값 65 G 정산', count: () => G.expEarn },
+  { name: '값진 발견', target: 1, reward: 30, unit: '개', task: '나침반 또는 성배 발견', count: () => (G.haulKinds || []).some(t => t === 'compass' || t === 'chalice') ? 1 : 0 },
+];
+function cleanHaulKinds(kinds) {
+  return Array.isArray(kinds) ? BASE_TYPES.filter(t => kinds.includes(t)) : [];
+}
+function harborGoal() {
+  if (CH.on || SAVE.stats.exp < 1) return null;
+  const goal = HARBOR_GOALS[(SAVE.stats.exp - 1) % HARBOR_GOALS.length];
+  const count = Math.min(goal.target, goal.count());
+  return { ...goal, count, met: count >= goal.target };
+}
+function canFinishHarborDay() {
+  return G.mode === 'play' && !G.cine && !G.peek && !G.dayDone && !CH.on && !SAVE_IO.readonly && G.clock && atPort(P.x, P.z);
+}
+function askFinishHarborDay() {
+  if (!canFinishHarborDay() || topModal()) return;
+  const goal = harborGoal();
+  releaseKeys();
+  const bonus = goal?.met ? `\n항구 보너스 +${goal.reward} G를 받아요.` : '';
+  confirmAsk(`오늘 탐험을 마치고 다음 썰물로 넘어갈까요?\n가방 속 보물은 그대로 남아요.${bonus}`, () => {
+    if (canFinishHarborDay()) endOfDayAtPort(true);
+  });
+}
 function startExpedition(atSpawn = true) {
   if (SAVE.expState && SAVE.expState.exp !== SAVE.stats.exp) SAVE.expState = null;
   if (SAVE.depState && SAVE.depState.exp !== SAVE.stats.exp) SAVE.depState = null;
-  G.dayDone = false;
+  G.dayDone = false; G.haulKinds = []; G.lastHarborGoal = null;
   // 밤 썰물: 오늘 이미 시작한 하루가 있으면 그날 그대로, 새 날이면 등대 탭의 선택대로 (등대를 끝까지 고친 뒤에만)
   const es0 = SAVE.expState && SAVE.expState.exp === SAVE.stats.exp ? SAVE.expState : SAVE.depState && SAVE.depState.exp === SAVE.stats.exp ? SAVE.depState : null;
   G.night = es0 && es0.night !== undefined ? !!es0.night : !!SAVE.night && lightDone();
@@ -6506,7 +6542,7 @@ function startExpedition(atSpawn = true) {
   hallAnnounce();
 }
 // 하루를 마칠 때 공통 처리 (rescued: 구조로 끝났는지). 보물을 하나라도 주운 날만 연속 기록에 셈
-function endDay(rescued) {
+function endDay(rescued, fromHarbor = false) {
   if (G.dayDone) return;   // 하루는 한 번만 확정 (결과 화면에서 이미 확정했으면 다시 세지 않음)
   G.dayDone = true;        // 다음 탐험을 시작할 때까지 오늘 상태를 저장하지 않음
   G.lastRescue = rescued;   // 다음 날 항구지기가 한마디
@@ -6515,6 +6551,8 @@ function endDay(rescued) {
   SAVE.shop = null;   // 오늘 산 물건은 오늘만
   delete SAVE.signal;
   G.lastPension = payHallPension();
+  G.lastHarborGoal = fromHarbor && !rescued && !SAVE_IO.readonly ? harborGoal() : null;
+  if (G.lastHarborGoal?.met) addGold(G.lastHarborGoal.reward);
   SAVE.stats.exp++;
   SAVE.stats.best = Math.max(SAVE.stats.best, G.expEarn);
   if (rescued) SAVE.streak = 0;
@@ -6541,7 +6579,7 @@ function expSnapshot(x = P.x, z = P.z, yaw = P.yaw) {
     bag: G.bag.map(b => b.type),
     items: G.items.filter(i => i.alive).map(i => [i.type, +i.x.toFixed(2), +i.z.toFixed(2), i.seen ? 1 : 0, i.dropped ? 1 : 0, i.spring ? 1 : 0]),
     spots: G.spots.map(s => s.done ? 1 : 0), sealOpen: !!G.sealOpen, scoped: !!G.scoped,
-    earn: G.expEarn | 0, picked: G.expItems | 0, stam: +P.stam.toFixed(1), ex: P.exhausted ? 1 : 0, night: G.night ? 1 : 0,
+    haulKinds: cleanHaulKinds(G.haulKinds), earn: G.expEarn | 0, picked: G.expItems | 0, stam: +P.stam.toFixed(1), ex: P.exhausted ? 1 : 0, night: G.night ? 1 : 0,
   };
 }
 // 지금 서 있는 곳이 이어하기를 시작해도 안전한지 (위험한 물·물모래·움직이는 뗏목 위가 아님)
@@ -6603,6 +6641,7 @@ function restoreExpState(es, quiet = false) {
   placePlayer(num(es.x, PORT.spawnX), num(es.z, PORT.spawnZ), num(es.yaw, 0));
   // 하루 기록과 체력 (구버전 저장에는 없으므로 기본값)
   G.expEarn = Math.max(0, num(es.earn ?? 0, 0)); G.expItems = Math.max(0, num(es.picked ?? 0, 0));
+  G.haulKinds = cleanHaulKinds(es.haulKinds);
   P.stam = clamp(num(es.stam ?? smax, smax), 0, smax); P.exhausted = !!es.ex && P.stam < smax * 0.35;
   CAMS.yawT = CAM.yaw = es.camYaw || 0; CAMS.yawV = 0;
   CAM.pitch = CAMS.pitchT = clamp(es.camPitch ?? CAM_PITCH, CAM_PITCH_MIN, CAM_PITCH_MAX); CAMS.pitchV = 0;
@@ -6839,12 +6878,12 @@ function onReturnPort() {
   requestSave();   // 돌아온 직후의 위치·시각·가방·남은 보물을 저장 (가방은 항구 확정 가방으로)
   if (n) tut('port');
 }
-function endOfDayAtPort() {
+function endOfDayAtPort(early = false) {
   G.cine = true;
   const prevStreak = SAVE.streak || 0;
-  endDay(false);   // 결과 화면에서 새로고침해도 같은 날이 처음부터(주운 보물까지 다시) 시작되지 않게 하루를 바로 확정
+  endDay(false, true);   // 결과 화면에서 새로고침해도 같은 날이 처음부터(주운 보물까지 다시) 시작되지 않게 하루를 바로 확정
   SND.relief();
-  showResult({ kind: 'safe', prevStreak });
+  showResult({ kind: 'safe', prevStreak, early });
 }
 function rescue(reason) {
   if (G.cine) return;
@@ -7537,7 +7576,7 @@ function guidePages() {
         <details class="gDetail"><summary>항구 이용과 주의할 점</summary><ul>
           <li>사무소에서 보물을 팔고, 공방에서 장비와 물건을 사요. 의뢰는 게시판에서 전달해요.</li>
           <li>전시실은 전시·도감, 부두 끝 왼쪽 기록대는 탐험 기록을 보여 줘요. 전시품마다 하루 10 G씩 10일 받아요.</li>
-          <li>만조가 끝날 때 항구에 있으면 탐험 결과가 나와요. 결과 화면에서 다음 탐험을 시작할 수 있어요.</li>
+          <li>항구로 돌아오면 물때 표시 아래 <b>오늘 탐험 마치기</b>를 눌러 다음 날로 넘어갈 수 있어요. 둘째 날부터 항구 보너스에 도전할 수 있어요.</li>
           <li>밀물에 갇혀 구조되면 기본 구조비는 소지금의 절반이에요. 일반 보물과 장비는 남지만, 유리 유물은 깨져요.</li>
           <li>낮은 길은 먼저 잠겨요. 날마다 물때·날씨·보물 위치가 바뀌니 귀환 여유를 확인하세요.</li>
         </ul></details>`,
@@ -7584,6 +7623,7 @@ function closeGuide() {
    ========================================================= */
 const UI = { bagSig: '', lastObj: '', toasts: [], hintT: 0, bannerT: 0, storyTok: 0, zoneEls: [], mm: null, later: [], goldShown: null, goldTxt: null, promptSig: '' };
 function hudInit() {
+  $('btnHarborFinish').hidden = !canFinishHarborDay();
   const td = $('tideDay');
   td.textContent = `${TIDE.icon} ${TIDE.short}`; td.className = 'tchip ' + TIDE.id; td.title = `${TIDE.name}: ${TIDE.desc}`;
   const tw = $('tideWx');
@@ -7811,6 +7851,7 @@ function hudUpdate(dt) {
   G.hudT -= dt;
   if (G.hudT > 0) return;
   G.hudT = 0.1;
+  $('btnHarborFinish').hidden = !canFinishHarborDay();
   placeFeed();
   renderBag(false);
   const rc = relicCount();
@@ -7941,7 +7982,9 @@ function updateObjective(force) {
   if (signal === 'accepted') sub = `📡 구조 신호 · 지도에서 수색 범위 확인 · 남은 시간 ${fmtTime(signalDeadline() - G.time)}`;
   if (signal === 'activated') sub = '📡 신호 전송 완료 · 항구 의뢰 탭에서 보상을 받으세요';
   if (G.clock && !G.inPort && G.ret.ok && G.ret.margin < 25 && rescueFee() > 0) sub = `⚠ 지금 돌아가지 않으면 구조비 ${rescueFee()} G를 내야 해요`;
-  const html = main + (sub ? `<span class="sub">${sub}</span>` : '');
+  const goal = harborGoal();
+  const bonus = goal ? `<span class="sub">⚓ ${goal.met ? '보너스 준비 완료' : goal.task + ' · ' + goal.count + '/' + goal.target + goal.unit} · +${goal.reward} G</span>` : '';
+  const html = main + (sub ? `<span class="sub">${sub}</span>` : '') + bonus;
   if (force || html !== UI.lastObj) {
     if (SET.objMini && UI.lastObj && html !== UI.lastObj) $('objective').classList.add('new');
     UI.lastObj = html; $('objective').innerHTML = html;
@@ -8725,12 +8768,16 @@ function showResult(o) {
       ${tideNote(SAVE.stats.exp)}
       <p class="note">다음엔 항구의 종이 울리면(귀환 여유 ${hasFac('bell') ? '1분 30초' : '1분'}) 돌아갈 준비를 하세요. 큰돈을 들고 나가는 날엔 항구 상점에서 구조 보험을 들어 두면 구조비를 내지 않아요. 여유가 줄면 바닥에 항구로 이어지는 빛 점이 나타나고, 미니맵의 노란 점선도 같은 길을 알려 줘요.${(o.prevStreak || 0) >= 2 ? ` 무사 귀환 연속 기록(${o.prevStreak}일)은 처음부터 다시 시작해요.` : ''}</p>`;
   } else {
-    body.innerHTML = `<h2>무사히 하루를 마쳤어요</h2><p style="margin:0 0 12px">만조가 섬을 덮는 동안 항구에서 안전하게 기다렸어요. 곧 다시 썰물이 시작돼요.</p>
+    body.innerHTML = `<h2>무사히 하루를 마쳤어요</h2><p style="margin:0 0 12px">${o.early ? '항구로 돌아와 탐험을 마쳤어요. 다음 썰물에 다시 출발할 수 있어요.' : '만조가 섬을 덮는 동안 항구에서 안전하게 기다렸어요. 곧 다시 썰물이 시작돼요.'}</p>
       <h3>가방 속 보물 (${kept.length}개)</h3><div class="items">${kept.length ? kept.map(b => itemRow(b.type)).join('') : '<p class="note" style="margin:0">가방이 비어 있어요.</p>'}</div>
       <h3>이번 탐험</h3><div><span class="pill">정산 ${G.expEarn} G</span><span class="pill">주운 보물 ${G.expItems}개</span>${G.expItems > 0 ? `<span class="pill">무사 귀환 연속 ${SAVE.streak || 0}일</span>` : ''}</div>
       ${tideNote(SAVE.stats.exp)}`;
   }
   $('result').classList.remove('hidden');
+  const goal = G.lastHarborGoal;
+  if (goal) body.insertAdjacentHTML('beforeend', goal.met
+    ? `<p class="feebox ok">⚓ ${goal.name} 완료 · 항구 보너스 <b>+${goal.reward} G</b></p>`
+    : `<p class="note">항구 보너스 미완료 · ${goal.task} (${goal.count}/${goal.target}${goal.unit})</p>`);
   if (G.lastPension) body.insertAdjacentHTML('beforeend', `<p class="feebox ok">🏛 전시 연금 +${G.lastPension} G 지급</p>`);
   $('btnResultOk').textContent = '항구에서 정산하기';
   $('btnResultOk').onclick = () => {
@@ -9004,7 +9051,7 @@ function showEnding(first) {
    ========================================================= */
 const tick = () => new Promise(r => setTimeout(r, 0));
 // 빌드 식별자: 어떤 판을 실행 중인지 확인용 (화면 구석·설정·콘솔에만 표시, 저장·규칙과 무관)
-const BUILD_ID = 'Sinking Island build 2026-11-camera-restore';
+const BUILD_ID = 'Sinking Island build 2026-11-harbor-goals';
 async function boot() {
   const say = t => { $('loadText').textContent = t; };
   console.info(BUILD_ID);
@@ -9455,6 +9502,7 @@ function bindUI() {
   });
   syncMapToggles();
   // 일시정지
+  $('btnHarborFinish').onclick = askFinishHarborDay;
   $('btnPause').onclick = () => { SND.click(); pauseGame(); };
   $('btnMute').onclick = () => setMute(!SET.mute);
   $('btnHelp').onclick = () => openHelp();
