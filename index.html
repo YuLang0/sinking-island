@@ -1379,7 +1379,8 @@ function cleanSave(raw, strict) {
     return {
       exp: es.exp, clock: es.clock === undefined ? 1 : (es.clock ? 1 : 0), t: es.t, x: es.x, z: es.z, yaw: fin(es.yaw, -1e4, 1e4, 0), camYaw: fin(es.camYaw, -1e4, 1e4, 0),
       camFirst: es.camFirst === true,
-      camPitch: fin(es.camPitch, es.camFirst === true ? FP_MIN : THIRD_MIN, es.camFirst === true ? FP_MAX : THIRD_MAX, es.camFirst === true ? FP_PITCH : THIRD_PITCH),
+      camDist: fin(es.camDist, 0, 52, es.camFirst === true ? 0 : CAM_DIST),
+      camPitch: fin(es.camPitch, FP_MIN, THIRD_MAX, es.camFirst === true ? FP_PITCH : THIRD_PITCH),
       haulKinds: cleanHaulKinds(es.haulKinds),
       bag: es.bag.slice(), items: es.items.map(it => [it[0], it[1], it[2], it[3] ? 1 : 0, it[4] ? 1 : 0, it[5] ? 1 : 0]),
       spots: (es.spots || []).map(v => (v ? 1 : 0)), sealOpen: !!es.sealOpen, scoped: !!es.scoped,
@@ -3194,28 +3195,29 @@ function visCaster(B) {
 }
 
 /* ---------- 카메라 ---------- */
-function firstPersonView() { return FIRST_PERSON && G.mode !== 'title' && G.mode !== 'boot' && !G.cine && !G.peek; }
+// 하나의 궤도 카메라: 거리가 0이 되면 같은 시선 그대로 눈높이에 도달한다.
+function firstPersonView() { return CAM.dist < .18 && G.mode !== 'title' && G.mode !== 'boot' && !G.cine && !G.peek; }
+function cameraBodyAlpha() {
+  return G.mode === 'title' || G.mode === 'boot' || G.cine || G.peek ? 1 : smooth(.4, 2.4, Math.min(CAM.dist, CAMS.viewDist));
+}
 function updateCamera() {
   const scripted = G.mode === 'title' || G.mode === 'boot' || G.cine || G.peek;
-  const first = firstPersonView();
   const dist = scripted ? CAM.dist : Math.min(CAM.dist, CAMS.viewDist);
   const cp = Math.cos(CAM.pitch), sp = Math.sin(CAM.pitch);
   CAM.ex = CAM.tx + Math.sin(CAM.yaw) * cp * dist;
   CAM.ey = CAM.ty + sp * dist;
   CAM.ez = CAM.tz + Math.cos(CAM.yaw) * cp * dist;
-  // 바로 뒤에 절벽이 있어 최소 거리까지 줄여도 겹치는 경우에는 눈높이도 확보한다.
-  if (!scripted && !first) {
+  if (!scripted) {
     const lastPad = GP;
-    CAM.ey = Math.max(CAM.ey, groundAt(CAM.ex, CAM.ez) + .55, U_LEVEL.v + .5);
+    CAM.ey = Math.max(CAM.ey, groundAt(CAM.ex, CAM.ez) + .25, U_LEVEL.v + .25);
     GP = lastPad;
-  }
-  if (first) {
-    CAM.ex = P.rx; CAM.ez = P.rz;
-    CAM.ey = Math.max(P.ry + 1.62, U_LEVEL.v + .25);
+    // 초점과 눈이 겹치는 거리 0에서도 시선 벡터는 유효하다.
     M4.lookAt(VIEW, CAM.ex, CAM.ey, CAM.ez,
       CAM.ex - Math.sin(CAM.yaw) * cp, CAM.ey - sp, CAM.ez - Math.cos(CAM.yaw) * cp);
   } else M4.lookAt(VIEW, CAM.ex, CAM.ey, CAM.ez, CAM.tx, CAM.ty, CAM.tz);
-  M4.perspective(PROJ, first ? (R.W < R.H ? 74 : 58) * Math.PI / 180 : CAM.fov, R.W / R.H, first ? .08 : 1.5, 420);
+  const nearView = scripted ? 0 : 1 - smooth(4, 22, CAM.dist);
+  const eyeFov = (R.W < R.H ? 74 : 58) * Math.PI / 180;
+  M4.perspective(PROJ, lerp(CAM.fov, eyeFov, nearView), R.W / R.H, scripted ? 1.5 : .08, 420);
   M4.mul(VP, PROJ, VIEW);
   // 그림자용 빛 카메라: 고정된 방향, 초점 위치를 텍셀 단위로 맞춰 떨림 방지
   M4.lookAt(LVIEW, SUN_DIR[0] * 100, SUN_DIR[1] * 100, SUN_DIR[2] * 100, 0, 0, 0, 0, 1, 0);
@@ -5712,7 +5714,8 @@ function updatePlayerModel(alpha, dt, time) {
   const fill = G.bag ? bagUsed() / Math.max(1, upVal('bag')) : 0;
   const ps = 0.85 + fill * 0.45;
   M4.mul(PM.pack.m, _pm, M4.compose(_pl, 0, 1.12 - pick * 0.15, -0.27 - fill * 0.06, pick * 0.3, 0, 0, ps, ps, ps));
-  for (const k in PM) PM[k].vis = P.vis && !firstPersonView();
+  const bodyAlpha = cameraBodyAlpha();
+  for (const k in PM) { PM[k].vis = P.vis && bodyAlpha > .001; PM[k].alpha = bodyAlpha; }
 }
 function inputVec() {
   let x = 0, y = 0;
@@ -5849,8 +5852,8 @@ function surfaceAt(x, z) {
 // 카메라: 진행 방향 앞쪽을 더 보여 주며 부드럽게 따라감
 const THIRD_PITCH = .8, THIRD_MIN = Math.PI / 12, THIRD_MAX = Math.PI * 17 / 36, CAM_DIST = 35;
 let CAM_PITCH = FIRST_PERSON ? FP_PITCH : THIRD_PITCH;   // 등각 투영에 가까운 기본 시점
-let CAM_PITCH_MIN = FIRST_PERSON ? FP_MIN : THIRD_MIN, CAM_PITCH_MAX = FIRST_PERSON ? FP_MAX : THIRD_MAX;   // 15°~85°
-const CAMS = { distT: CAM_DIST, viewDist: CAM_DIST, shake: 0, lx: 0, lz: 0, yawT: 0, yawV: 0, pitchT: CAM_PITCH, pitchV: 0 };
+let CAM_PITCH_MIN = FP_MIN, CAM_PITCH_MAX = THIRD_MAX;   // 올려다보기 -60° ~ 내려다보기 85°
+const CAMS = { distT: FIRST_PERSON ? 0 : CAM_DIST, viewDist: CAM_DIST, shake: 0, lx: 0, lz: 0, yawT: 0, yawV: 0, pitchT: CAM_PITCH, pitchV: 0 };
 const ORBIT = { id: null, x: 0, y: 0, dragging: false, sensitivity: .003 };
 // 임계 감쇠의 해를 써 프레임 수와 무관하게 회전 속도와 가속을 연속으로 잇는다.
 function smoothCameraYaw(dt) {
@@ -5880,21 +5883,9 @@ function syncViewButtons() {
 }
 function toggleCameraView() {
   if (G.mode !== 'title' && !canAdjustCamera()) return false;
-  cancelCameraOrbit();
-  FIRST_PERSON = !FIRST_PERSON;
-  CAM_PITCH = FIRST_PERSON ? FP_PITCH : THIRD_PITCH;
-  CAM_PITCH_MIN = FIRST_PERSON ? FP_MIN : THIRD_MIN;
-  CAM_PITCH_MAX = FIRST_PERSON ? FP_MAX : THIRD_MAX;
-  CAMS.pitchT = CAM_PITCH; CAMS.pitchV = 0;
-  if (G.mode === 'play') {
-    CAM.pitch = CAM_PITCH;
-    CAMS.lx = CAMS.lz = 0;
-    CAM.tx = P.rx; CAM.tz = P.rz;
-    CAM.ty = Math.max(P.ry + .9, U_LEVEL.v + .65);
-    CAM.dist = CAMS.distT * (R.W < R.H ? 1.45 : 1);
-    CAMS.viewDist = FIRST_PERSON ? CAM.dist : cameraClearDistance(CAM.dist);
-    CAN.focus();
-  }
+  // 터치용 버튼도 동일한 거리 보간을 이용한다. 각도·초점·위치를 초기화하지 않는다.
+  CAMS.distT = CAMS.distT < .18 ? CAM_DIST : 0;
+  FIRST_PERSON = CAMS.distT < .18;
   syncViewButtons();
   return true;
 }
@@ -5902,17 +5893,12 @@ function wheelCamera(e) {
   if (e.ctrlKey) return;
   e.preventDefault();
   if (!canAdjustCamera() || !Number.isFinite(e.deltaY) || !e.deltaY) return;
-  const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
-  if (FIRST_PERSON) {
-    if (delta > 0) {
-      CAMS.distT = 22;
-      toggleCameraView();
-    }
-    return;
-  }
-  const next = CAMS.distT + delta * .02;
-  CAMS.distT = clamp(next, 22, 52);
-  if (next <= 22 && delta < 0) toggleCameraView();
+  const delta = clamp(e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1), -240, 240);
+  // 가까워질수록 작은 간격: 멀리서는 빠르게, 어깨와 눈 사이에서는 세밀하게.
+  const next = CAMS.distT + delta * (.006 + CAMS.distT * .0015);
+  CAMS.distT = next < .12 && delta < 0 ? 0 : clamp(next, 0, 52);
+  FIRST_PERSON = CAMS.distT < .18;
+  syncViewButtons();
 }
 function canAdjustCamera() { return G.mode === 'play' && !G.cine && !G.peek && !GUIDE.open && !topModal(); }
 function cancelCameraOrbit(e) {
@@ -5929,12 +5915,17 @@ function cancelCameraOrbit(e) {
 function setupCameraOrbit() {
   CAN.addEventListener('pointerdown', e => {
     if (!canAdjustCamera() || ORBIT.id !== null || (e.button !== 0 && !(e.pointerType === 'mouse' && e.button === 2))) return;
+    if (e.pointerType === 'mouse' && firstPersonView() && CAN.requestPointerLock) {
+      try { const req = CAN.requestPointerLock(); if (req?.catch) req.catch(() => {}); } catch (_) {}
+      return;
+    }
     e.preventDefault();
     ORBIT.id = e.pointerId; ORBIT.x = e.clientX; ORBIT.y = e.clientY;
     ORBIT.sensitivity = e.pointerType === 'touch' ? .0045 : .003;
     CAN.setPointerCapture(e.pointerId);
   });
   CAN.addEventListener('pointermove', e => {
+    if (document.pointerLockElement === CAN) return;
     if (e.pointerId !== ORBIT.id) return;
     if (!canAdjustCamera()) { cancelCameraOrbit(); return; }
     if (e.pointerType === 'mouse' && !e.buttons) { cancelCameraOrbit(e); return; }
@@ -5946,6 +5937,12 @@ function setupCameraOrbit() {
     CAMS.yawT -= dx * ORBIT.sensitivity;
     CAMS.pitchT = clamp(CAMS.pitchT + dy * ORBIT.sensitivity * .55, CAM_PITCH_MIN, CAM_PITCH_MAX);
   });
+  document.addEventListener('mousemove', e => {
+    if (document.pointerLockElement !== CAN || !canAdjustCamera()) return;
+    CAMS.yawT -= e.movementX * .003;
+    CAMS.pitchT = clamp(CAMS.pitchT + e.movementY * .00165, CAM_PITCH_MIN, CAM_PITCH_MAX);
+  });
+  document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement === CAN) cancelCameraOrbit(); });
   for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) CAN.addEventListener(ev, cancelCameraOrbit);
 }
 // Q·R: 카메라를 90°씩 돌림 (이동 방향은 늘 화면 기준)
@@ -5962,9 +5959,9 @@ function cameraClearDistance(distance) {
   const dx = Math.sin(CAM.yaw) * cp, dz = Math.cos(CAM.yaw) * cp;
   const lastPad = GP;
   let clear = distance;
-  for (let d = 2.5; d <= distance; d = Math.min(distance, d + .5)) {
-    const floor = Math.max(groundAt(CAM.tx + dx * d, CAM.tz + dz * d) + .55, U_LEVEL.v + .5);
-    if (CAM.ty + sp * d < floor) { clear = Math.max(2, d - .65); break; }
+  for (let d = .25; d <= distance; d = Math.min(distance, d + .25)) {
+    const floor = Math.max(groundAt(CAM.tx + dx * d, CAM.tz + dz * d) + .25, U_LEVEL.v + .25);
+    if (CAM.ty + sp * d < floor) { clear = Math.max(0, d - .3); break; }
     if (d === distance) break;
   }
   GP = lastPad;
@@ -5976,6 +5973,7 @@ function updateCameraClearance(dt) {
 }
 function updateFollowCam(dt) {
   if (ORBIT.id !== null && !canAdjustCamera()) cancelCameraOrbit();
+  if (document.pointerLockElement === CAN && (!canAdjustCamera() || CAMS.distT > .18)) document.exitPointerLock();
   if (G.peek) {
     // 장치·유물 연출은 기존 구도로 보여 주고, 끝나면 사용자가 고른 각도로 돌아간다.
     CAM.pitch += ((FIRST_PERSON ? .8 : CAM_PITCH) - CAM.pitch) * damp(5, dt); CAMS.pitchV = 0;
@@ -5991,15 +5989,17 @@ function updateFollowCam(dt) {
     const lk = moving ? damp(4, dt) : damp(2.4, dt);
     CAMS.lx += (lx - CAMS.lx) * lk; CAMS.lz += (lz - CAMS.lz) * lk;
     // 세로 화면(휴대폰)에서는 더 멀리서 보고, 플레이어를 화면 중앙보다 조금 위에 둠
-    const portrait = R.W < R.H, zoom = portrait ? 1.45 : 1;
+    const portrait = R.W < R.H, near = 1 - smooth(2, 12, CAM.dist);
+    const zoom = portrait ? lerp(1.45, 1, near) : 1;
     smoothCameraYaw(dt);
     smoothCameraPitch(dt);
     // 화면 위쪽(카메라가 바라보는 쪽)으로 조금 더 보여 줌
     const up = portrait ? -1.4 : 0.3, fx = -Math.sin(CAM.yaw), fz = -Math.cos(CAM.yaw);
-    CAM.tx += (P.rx + CAMS.lx + fx * up - CAM.tx) * damp(8, dt);
-    CAM.tz += (P.rz + CAMS.lz + fz * up - CAM.tz) * damp(8, dt);
-    CAM.ty += (Math.max(P.ry + 0.9, U_LEVEL.v + .65) - CAM.ty) * damp(6, dt);
-    CAM.dist += (CAMS.distT * zoom - CAM.dist) * damp(5, dt);
+    CAM.tx += (P.rx + (CAMS.lx + fx * up) * (1 - near) - CAM.tx) * damp(lerp(8, 24, near), dt);
+    CAM.tz += (P.rz + (CAMS.lz + fz * up) * (1 - near) - CAM.tz) * damp(lerp(8, 24, near), dt);
+    CAM.ty += (Math.max(P.ry + lerp(.9, 1.62, near), U_LEVEL.v + lerp(.65, .25, near)) - CAM.ty) * damp(lerp(6, 24, near), dt);
+    CAM.dist += (CAMS.distT * zoom - CAM.dist) * damp(12, dt);
+    if (Math.abs(CAM.dist - CAMS.distT * zoom) < .0001) CAM.dist = CAMS.distT * zoom;
   }
   if (CAMS.shake > 0 && !REDUCED && SET.shake !== false) {
     CAMS.shake = Math.max(0, CAMS.shake - dt);
@@ -6650,7 +6650,7 @@ function startClock() {
 // 오늘 하루의 상태 한 벌 (탐험 상태·항구 기준 상태에 같은 형식으로 씀)
 function expSnapshot(x = P.x, z = P.z, yaw = P.yaw) {
   return {
-    exp: SAVE.stats.exp, clock: G.clock ? 1 : 0, t: +G.time.toFixed(2), x: +x.toFixed(2), z: +z.toFixed(2), yaw: +yaw.toFixed(2), camYaw: CAMS.yawT, camFirst: FIRST_PERSON, camPitch: CAMS.pitchT,
+    exp: SAVE.stats.exp, clock: G.clock ? 1 : 0, t: +G.time.toFixed(2), x: +x.toFixed(2), z: +z.toFixed(2), yaw: +yaw.toFixed(2), camYaw: CAMS.yawT, camFirst: CAMS.distT < .18, camDist: CAMS.distT, camPitch: CAMS.pitchT,
     bag: G.bag.map(b => b.type),
     items: G.items.filter(i => i.alive).map(i => [i.type, +i.x.toFixed(2), +i.z.toFixed(2), i.seen ? 1 : 0, i.dropped ? 1 : 0, i.spring ? 1 : 0]),
     spots: G.spots.map(s => s.done ? 1 : 0), sealOpen: !!G.sealOpen, scoped: !!G.scoped,
@@ -6719,7 +6719,11 @@ function restoreExpState(es, quiet = false) {
   G.haulKinds = cleanHaulKinds(es.haulKinds);
   P.stam = clamp(num(es.stam ?? smax, smax), 0, smax); P.exhausted = !!es.ex && P.stam < smax * 0.35;
   CAMS.yawT = CAM.yaw = es.camYaw || 0; CAMS.yawV = 0;
-  CAM.pitch = CAMS.pitchT = clamp(!!es.camFirst === FIRST_PERSON ? es.camPitch ?? CAM_PITCH : CAM_PITCH, CAM_PITCH_MIN, CAM_PITCH_MAX); CAMS.pitchV = 0;
+  CAMS.distT = clamp(num(es.camDist, es.camFirst ? 0 : CAM_DIST), 0, 52);
+  FIRST_PERSON = CAMS.distT < .18;
+  CAM.dist = CAMS.distT * (R.W < R.H ? 1.45 : 1); CAMS.viewDist = CAM.dist;
+  CAM.pitch = CAMS.pitchT = clamp(es.camPitch ?? CAM_PITCH, CAM_PITCH_MIN, CAM_PITCH_MAX); CAMS.pitchV = 0;
+  syncViewButtons();
   // 시계가 돌기 전이면 항구 안으로 보고, 항구 밖으로 나가는 순간 시계가 시작되게 함
   G.inPort = G.clock ? atPort(P.x, P.z) : true;
   updateReturn();
@@ -7629,7 +7633,7 @@ function guidePages() {
         <p class="gBrief">물이 빠진 길을 따라 보물을 찾아요.<br><b>처음에는 항구 가까운 해변부터.</b></p>
         <div class="gActions"><div>${key(move)}<span>이동</span></div><div>${key(touch ? '달리기 버튼' : keyName('run'))}<span>달리기</span></div></div>
         <details class="gDetail"><summary>조작 더 보기</summary><ul>
-          <li>${touch ? '화면 위 시점 버튼으로 1인칭과 3인칭을 바꿔요.' : '휠로 끝까지 확대하면 1인칭, 축소하면 다시 3인칭으로 돌아와요.'}</li>
+          <li>${touch ? '화면 위 시점 버튼으로 1인칭과 3인칭을 바꿔요.' : '휠로 가까이 다가가면 자연스럽게 1인칭이 돼요. 1인칭에서 화면을 클릭하면 마우스로 둘러봐요. Esc로 커서를 풀어요.'}</li>
           <li>${touch ? '빈 화면을 손가락으로 쓸어 시점을 돌려요.' : '빈 화면을 마우스로 드래그해 시점을 돌려요.'}</li>
           <li>항구를 나서면 물때가 흐르기 시작해요. 달리면 체력이 줄고, 쉬면 다시 차요.</li>
           <li>${touch ? '🗺 버튼' : key(keyName('map'))} 섬 지도 · ${touch ? '가방 칸 누르기' : key(keyName('bag'))} 가방 · ${touch ? '⏸ 버튼' : key('Esc')} 일시정지</li>
@@ -9183,7 +9187,7 @@ function showEnding(first) {
    ========================================================= */
 const tick = () => new Promise(r => setTimeout(r, 0));
 // 빌드 식별자: 어떤 판을 실행 중인지 확인용 (화면 구석·설정·콘솔에만 표시, 저장·규칙과 무관)
-const BUILD_ID = 'Sinking Island build 2026-11-wheel-view';
+const BUILD_ID = 'Sinking Island build 2026-11-continuous-orbit';
 async function boot() {
   const say = t => { $('loadText').textContent = t; };
   console.info(BUILD_ID);
@@ -9254,7 +9258,7 @@ function startGame(isNew) {
   applyUiScale(); setTimeout(applyUiScale, 400);   // 목표 문구가 채워진 뒤 한 번 더 맞춤
   navWarmup();
   resizeMinimapCanvas(); setTimeout(scheduleMinimapCanvas, 420);
-  CAM.yaw = 0; CAMS.yawT = 0; CAMS.yawV = 0; CAM.pitch = CAMS.pitchT = CAM_PITCH; CAMS.pitchV = 0; CAMS.distT = CAM_DIST; CAM.dist = CAM_DIST; CAMS.lx = CAMS.lz = 0;
+  CAM.yaw = 0; CAMS.yawT = 0; CAMS.yawV = 0; CAM.pitch = CAMS.pitchT = CAM_PITCH; CAMS.pitchV = 0; CAMS.distT = FIRST_PERSON ? 0 : CAM_DIST; CAM.dist = CAMS.distT; CAMS.lx = CAMS.lz = 0;
   G.inPort = true; G.endingRun = false;
   const es = !isNew && SAVE.expState && SAVE.expState.exp === SAVE.stats.exp ? SAVE.expState : null;
   startExpedition(true);
@@ -9299,7 +9303,7 @@ function startDaily() {
   applyUiScale(); setTimeout(applyUiScale, 400);
   navWarmup();
   resizeMinimapCanvas(); setTimeout(scheduleMinimapCanvas, 420);
-  CAM.yaw = 0; CAMS.yawT = 0; CAMS.yawV = 0; CAM.pitch = CAMS.pitchT = CAM_PITCH; CAMS.pitchV = 0; CAMS.distT = CAM_DIST; CAM.dist = CAM_DIST; CAMS.lx = CAMS.lz = 0;
+  CAM.yaw = 0; CAMS.yawT = 0; CAMS.yawV = 0; CAM.pitch = CAMS.pitchT = CAM_PITCH; CAMS.pitchV = 0; CAMS.distT = FIRST_PERSON ? 0 : CAM_DIST; CAM.dist = CAMS.distT; CAMS.lx = CAMS.lz = 0;
   G.inPort = true; G.endingRun = false; G.cine = false; G.peek = null;
   startExpedition(true);
   revealAround(P.x, P.z, 18);
