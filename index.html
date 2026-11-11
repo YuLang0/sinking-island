@@ -3920,10 +3920,11 @@ function glyphCanvas(kind, lit = false) {
    10. 오래된 항구 (언제나 안전한 거점)
    ========================================================= */
 // 상호작용 시설: 각각 항구 메뉴의 다른 탭을 엶
+const BOARD = { x: -1.1, z: 29.0 };
 const FAC = {
   counter: { x: -6.5, z: 36.6, tab: 'settle', name: '항구 사무소 창구', act: '정산하기', mk: [-7.45, 7.5, 36.6] },
   workshop: { x: -1.2, z: 38.6, tab: 'upgrade', name: '공방 작업대', act: '업그레이드', mk: [-0.35, 7.4, 38.6] },
-  board: { x: -1.1, z: 31.2, tab: 'request', name: '의뢰 게시판', act: '의뢰 보기', mk: [-1.1, 8.7, 30.2] },
+  board: { x: BOARD.x, z: BOARD.z + 1, tab: 'request', name: '의뢰 게시판', act: '의뢰 보기', mk: [BOARD.x, 8.7, BOARD.z] },
 };
 const PORT_Y = 5.5;
 function house(cx, cz, w, d, h, o) {
@@ -3941,8 +3942,19 @@ function buildPort() {
   blk('wood', -7.45, Y, 36.6, 0.9, 1.05, 2.6, C.woodL);
   colBox(-7.45, 36.6, 0.45, 1.3, 0, Y + 1.05);
   for (let i = 0; i < 4; i++) blk('plain', -7.05, Y + 2.45, 35.6 + i * 0.66, 1.7, 0.1, 0.66, i % 2 ? C.cloth : C.red, { rz: -0.3, r: 0.02, grad: 0 });
-  for (const x of [-12, -9.2]) blk('plain', x, Y + 1.1, 39.12, 0.9, 0.9, 0.1, 0x2c5964, { grad: 0 });
-  blk('plain', -7.95, Y + 1.0, 35.2, 0.1, 0.9, 0.9, 0x2c5964, { grad: 0 });
+  reserveModelColors(3);
+  withOwnRng(366, () => {
+    // 벽 바깥의 불투명한 청회색 유리와 창틀. 벽과 겹치는 면을 두지 않는다.
+    for (const [x, z, yaw] of [[-12, 39.17, 0], [-9.2, 39.17, 0], [-7.83, 35.2, Math.PI / 2]]) {
+      const face = (key, offset, dy, width, height, depth, color) => blk(key,
+        x + Math.sin(yaw) * offset, Y + dy - (yaw === 0 ? 0.19 : 0), z + Math.cos(yaw) * offset,
+        width, height, depth, color, { ry: yaw, grad: 0, jit: 0, r: 0.012 });
+      face('wood', 0, 1.03, 1.02, 0.91, 0.11, 0x73543b);
+      face('glow', 0.063, 1.11, 0.84, 0.75, 0.024, 0x739da4);
+      face('wood', 0.091, 1.11, 0.043, 0.75, 0.025, 0x87664a);
+      face('wood', 0.095, 1.46, 0.84, 0.043, 0.025, 0x87664a);
+    }
+  });
   addTexQuad(signCanvas('항구 사무소', 320, 96), 2.8, 0.84, -10.6, Y + 2.2, 39.15, 0);
   // 정산 창구 위 저울과 장부
   blk('metal', -7.45, Y + 1.05, 37.3, 0.5, 0.08, 0.5, C.gold, { r: 0.03 });
@@ -3982,12 +3994,13 @@ function buildPort() {
     blk('metal', -0.12, Y + 1.83, 37.01, 0.23, 0.08, 0.23, C.metal);
   });
   // 의뢰 게시판: 새 의뢰가 붙으면 위에 빛이 깜빡임
-  for (const x of [-2.15, -0.05]) blk('wood', x, Y - 0.2, 30.2, 0.2, 2.8, 0.2, C.woodD);
-  blk('wood', -1.1, Y + 0.85, 30.2, 2.4, 1.3, 0.14, C.wood);
-  for (let i = 0; i < 4; i++) blk('plain', -1.8 + i * 0.47, Y + 1.15 + (i % 2) * 0.22, 30.29, 0.36, 0.46, 0.03, C.cloth, { rz: (i - 1.5) * 0.09, r: 0.01, grad: 0 });
-  plaque('의뢰 게시판', -1.1, Y + 2.45, 30.32);
-  colBox(-1.1, 30.2, 1.25, 0.2, 0, Y + 2.6);
-  const bg = addGlow(-1.1, Y + 3.2, 30.45, 1.5, [1.0, 0.82, 0.35], 0, { pulse: 0.45 });
+  const { x: boardX, z: boardZ } = BOARD;
+  for (const x of [boardX - 1.05, boardX + 1.05]) blk('wood', x, Y - 0.2, boardZ, 0.2, 2.8, 0.2, C.woodD);
+  blk('wood', boardX, Y + 0.85, boardZ, 2.4, 1.3, 0.14, C.wood);
+  for (let i = 0; i < 4; i++) blk('plain', boardX - 0.7 + i * 0.47, Y + 1.15 + (i % 2) * 0.22, boardZ + 0.09, 0.36, 0.46, 0.03, C.cloth, { rz: (i - 1.5) * 0.09, r: 0.01, grad: 0 });
+  plaque('의뢰 게시판', boardX, Y + 2.45, boardZ + 0.12);
+  colBox(boardX, boardZ, 1.25, 0.2, 0, Y + 2.6);
+  const bg = addGlow(boardX, Y + 3.2, boardZ + 0.25, 1.5, [1.0, 0.82, 0.35], 0, { pulse: 0.45 });
   WORLD.anim.push(() => { bg.a = SAVE.req && !SAVE.reqSeen && G.mode !== 'title' ? 0.85 : 0; });
   // 등대: 밀물이 높아질수록 불빛이 밝아져 귀환 방향을 알려 줌
   const LX = -12.4, LZ = 41.2, rAt = y => 1.42 - 0.42 * (y - Y + 0.3) / 6.9;
@@ -4076,10 +4089,10 @@ function buildPort() {
   withOwnRng(3838, () => buildHall(Y));
   withOwnRng(3944, () => buildLighthouseParts(Y, LX, LZ));
   LATE_WORLD.push(() => addInter({ x: LX + 1.9, z: LZ - 1.0, y: Y, r: 1.6, name: '낡은 등대', on: () => SAVE.ended && !CH.on, act: () => lightDone() ? '밤 썰물 고르기' : '복원하기', prio: 1, mk: [LX, Y + 8.6, LZ], use: () => openPort('light') }));
-  LATE_WORLD.push(() => withOwnRng(4179, () => buildHarborArchive(Y+.06)));
+  LATE_WORLD.push(() => withOwnRng(4179, () => buildHarborArchive(Y)));
 }
 // 부두 끝 왼쪽에 난간으로 둘러싸인 곁발판을 붙인다. 기존 중앙 통로의 폭은 그대로다.
-const ARCHIVE = { x: -6.94, z: 49.48, front: 50.94 };
+const ARCHIVE = { x: BOARD.x - 2.65, z: BOARD.z, front: BOARD.z + 1.43 };
 function buildArchivePier(y) {
   const {x0,x1,z0,z1}=ARCHIVE_PIER, xm=(x0+x1)/2, zm=(z0+z1)/2;
   addPad(x0,x1,z0,z1,y+.06,'wood',{shore:false});
@@ -4099,7 +4112,7 @@ function buildArchivePier(y) {
   rail(x0+.04,z0+.04,-5.62,z0+.04);
   rail(x0+.04,z1-.04,-5.62,z1-.04);
 }
-// 기록대는 부두 끝 곁발판 안쪽에만 놓고, 장부 앞으로 옆에서 들어갈 수 있게 한다.
+// 의뢰 게시판 옆에서 장부를 펼쳐 볼 수 있는 기록대.
 function buildHarborArchive(y) {
   const {x,z,front}=ARCHIVE, key='tmpHarborArchive';
   const box=(dx,dy,dz,w,h,d,color,o)=>blk(key,x+dx,y+dy,z+dz,w,h,d,color,o);
@@ -4131,7 +4144,7 @@ function buildHarborArchive(y) {
     mk:[x,y+1.21,z+.44],use:()=>openPort('record')});
 }
 /* ---------- 항구 전시실: 도감의 기본 보물 다섯 가지를 모두 찾으면 지어짐 ----------
-   그 전에는 돌 바닥과 말뚝, '전시실 터' 팻말만 있음. 지어진 뒤에는 진열대 열 개(앞줄 보물, 뒷줄 희귀 변종)에
+   지어진 뒤에는 진열대 열 개(앞줄 보물, 뒷줄 희귀 변종)에
    전시한 보물이 천천히 돌며 빛나고 10일 동안 전시 연금을 지급함 */
 const HALL = { x: 2.45, z: 30.15 };
 // 이번에 늘어난 충돌·상호작용(전시실·등대)은 나무·보물 자리를 다 정한 뒤에 넣음.
@@ -4141,26 +4154,20 @@ function lateWorld() {
   for (const f of LATE_WORLD) f();
   LATE_WORLD.length = 0;
   buildNav(HALL.x - 3, HALL.x + 3, HALL.z - 2.5, HALL.z + 2.5);   // 전시실 자리의 길찾기 칸만 다시 계산
+  buildNav(ARCHIVE.x - 2, ARCHIVE.x + 2, ARCHIVE.z - 2, ARCHIVE.z + 2);
   buildNav(ARCHIVE_PIER.x0,PIER.x1,ARCHIVE_PIER.z0,ARCHIVE_PIER.z1);
 }
 const HALL_SLOTS = [...BASE_TYPES, ...RARE_TYPES];
-const HALL_PARTS = { built: null, plot: null, sign: null, plotSign: null, items: {}, glows: {} };
+const HALL_PARTS = { built: null, sign: null, collision: null, items: {}, glows: {} };
 // 앞(+z, 광장·카메라 쪽) 줄에 보물 다섯, 뒷줄에 조금 더 높은 받침의 희귀 변종 다섯
 function hallSlotPos(i) { const row = i < 5 ? 0 : 1, col = i % 5; return [HALL.x - 1.36 + col * 0.68, HALL.z + 0.45 - row * 0.8]; }
 function buildHall(Y) {
   const { x, z } = HALL;
-  // 빈터 (늘 보임): 낮은 돌 바닥. 광장 북동쪽, 휘어진 담과 의뢰 게시판 사이 (동쪽 해변·북쪽 길을 막지 않음)
-  blk('stone', x, Y - 0.35, z, 3.7, 0.5, 2.2, C.stone2, { r: 0.06, grad: 0.1 });
-  LATE_WORLD.push(() => colBox(x, z, 1.87, 1.12, 0, Y + 1.6));
-  // 빈터 말뚝과 줄 (지어지기 전에만)
-  const cx = 1.75, cz = 1.0;
-  for (const [dx, dz] of [[-cx, -cz], [cx, -cz], [-cx, cz], [cx, cz]]) cyl('tmpHallPlot', x + dx, Y, z + dz, 0.06, 0.07, 0.9, C.woodD, { seg: 6 });
-  for (const [a, b] of [[[-cx, -cz], [cx, -cz]], [[-cx, cz], [cx, cz]], [[-cx, -cz], [-cx, cz]], [[cx, -cz], [cx, cz]]]) {
-    const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    blk('tmpHallPlot', x + mx, Y + 0.72, z + mz, a[1] === b[1] ? len : 0.03, 0.03, a[1] === b[1] ? 0.03 : len, 0xd8c08a, { r: 0.01, grad: 0, jit: 0 });
-  }
-  HALL_PARTS.plot = dynFrom('tmpHallPlot', { mat: 'plain' });
-  HALL_PARTS.plotSign = plaque('전시실 터', x, Y + 1.25, z + 1.05, 0, 0.9);
+  blk('tmpHall', x, Y - 0.35, z, 3.7, 0.5, 2.2, C.stone2, { r: 0.06, grad: 0.1 });
+  LATE_WORLD.push(() => {
+    HALL_PARTS.collision = colBox(x, z, 1.87, 1.12, 0, Y + 1.6);
+    HALL_PARTS.collision.on = hallOpen();
+  });
   // 지어진 전시실: 진열대 열 개, 뒤쪽 낮은 벽과 기둥 두 개, 팻말을 단 들보 (앞은 트여 있어 진열품이 잘 보임)
   for (let i = 0; i < 10; i++) {
     const [px, pz] = hallSlotPos(i), rare = i >= 5;
@@ -4175,7 +4182,7 @@ function buildHall(Y) {
   HALL_PARTS.built = dynFrom('tmpHall', { mat: 'plain' });
   HALL_PARTS.sign = plaque('항구 전시실', x, Y + 2.7, z - 0.78, 0, 0.95);
   HALL_PARTS.y = Y;
-  LATE_WORLD.push(() => addInter({ x, z: z + 1.85, y: Y, r: 1.8, name: '항구 전시실', act: () => hallOpen() ? '전시하기' : '전시실 터 살펴보기', prio: 1, mk: [x, Y + 3.1, z - 0.8], use: () => openPort('hall') }));
+  LATE_WORLD.push(() => addInter({ x, z: z + 1.85, y: Y, r: 1.8, name: '항구 전시실', on: hallOpen, act: '전시하기', prio: 1, mk: [x, Y + 3.1, z - 0.8], use: () => openPort('hall') }));
   WORLD.sync.push(syncHall);
   WORLD.anim.push((dt, t) => {
     if (!HALL_PARTS.built.vis || !HALL_PARTS.items.shell) return;
@@ -4218,7 +4225,10 @@ function syncHall() {
   hallItems();
   const open = hallOpen();
   HALL_PARTS.built.vis = open; HALL_PARTS.sign.vis = open;
-  HALL_PARTS.plot.vis = !open; HALL_PARTS.plotSign.vis = !open;
+  if (HALL_PARTS.collision && HALL_PARTS.collision.on !== open) {
+    HALL_PARTS.collision.on = open;
+    buildNav(HALL.x - 3, HALL.x + 3, HALL.z - 2.5, HALL.z + 2.5);
+  }
   for (const t of HALL_SLOTS) {
     const on = open && !!SAVE.hall[t], d = HALL_PARTS.items[t];
     d.vis = on; if (on) M4.compose(d.m, d.base[0], d.base[1], d.base[2], 0, 0, 0, 0.8, 0.8, 0.8);
@@ -5705,7 +5715,7 @@ function buildPlayer() {
   cyl('tmpPack', 0, 0.2, 0.02, 0.1, 0.1, 0.44, 0xb39264, { seg: 8, rz: Math.PI / 2 });
   PM.pack = dynFrom('tmpPack', { mat: 'actor' });
 }
-const _pm = new Float32Array(16), _pl = new Float32Array(16);
+const _pm = new Float32Array(16), _pl = new Float32Array(16), _upper = new Float32Array(16);
 function partM(out, root, x, y, z, rx, ry, rz, s = 1) {
   M4.compose(_pl, x, y, z, rx, ry, rz, s, s, s);
   M4.mul(out, root, _pl);
@@ -5726,29 +5736,25 @@ function updatePlayerModel(alpha, dt, time) {
   P.ry = y;
   P.yawV += angDiff(P.yawV, P.yaw) * damp(12, dt);
   const sp = Math.hypot(P.vx, P.vz);
-  const amp = clamp(sp / CFG.WALK, 0, 1.4) * (1 - P.swim * 0.6);
-  const bob = Math.abs(Math.sin(P.phase)) * 0.06 * amp;
-  const breathe = Math.sin(time * 2.2) * 0.01;
-  // 유물을 얻으면 두 팔을 번쩍 들고 깡충
+  const amp = smooth(0, CFG.WALK, sp) * lerp(0.76, 1.13, smooth(CFG.WALK, CFG.RUN, sp)) * (1 - P.swim * 0.6);
   const ch = P.cheer > 0 ? smooth(0, 0.3, P.cheer) * smooth(1.75, 1.45, P.cheer) : 0;
-  const hop = ch * Math.abs(Math.sin(time * 9)) * 0.14;
-  // 뿌리 자세는 수직으로 유지한다. XYZ 회전의 전역 X 기울기는 방향에 따라
-  // 옆으로 넘어지는 모양이 되므로, 달리기는 팔다리와 걸음 높이로만 표현한다.
-  M4.compose(_pm, P.rx, y + bob + breathe + hop, P.rz, 0, P.yawV, 0);
-  const sw = Math.sin(P.phase) * 0.62 * amp * (1 - ch);
-  const pick = P.pick * (1 - ch);
-  const paddle = P.swim > 0.3 ? Math.sin(time * 6) * 0.9 : 0;
-  // 허벅지 넘게 물이 차면 팔을 들어 올려 균형을 잡음
+  const pick = smooth(0, 0.24, P.pick) * (1 - smooth(0.68, 1, P.pick)) * (1 - ch);
+  const bob = Math.abs(Math.sin(P.phase)) * 0.035 * amp;
+  const breathe = Math.sin(time * 2.2) * 0.006;
+  const hipDrop = pick * 0.08;
+  M4.compose(_pm, P.rx, y + bob + breathe, P.rz, 0, P.yawV, 0);
+  const sw = Math.sin(P.phase) * 0.52 * amp * (1 - ch * 0.65) * (1 - pick * 0.55);
+  const paddle = smooth(0.15, 0.65, P.swim) * Math.sin(time * 6) * 0.67;
   const wade = smooth(0.42, 0.78, depth) * (1 - P.swim) * (1 - ch);
-  const wave = ch * Math.sin(time * 14) * 0.18;
-  partM(PM.legL.m, _pm, 0.12, 0.8, 0, sw, 0, 0);
-  partM(PM.legR.m, _pm, -0.12, 0.8, 0, -sw, 0, 0);
-  partM(PM.armL.m, _pm, 0.31, 1.35, 0, lerp(-sw * 0.9 - pick * 1.4 + paddle - 0.05 - wade * 0.75, -2.85 + wave, ch), 0, 0.12 + P.swim * 1.1 + wade * 0.55 + ch * 0.25);
-  partM(PM.armR.m, _pm, -0.31, 1.35, 0, lerp(sw * 0.9 - pick * 1.4 - paddle - 0.05 - wade * 0.75, -2.85 - wave, ch), 0, -0.12 - P.swim * 1.1 - wade * 0.55 - ch * 0.25);
-  M4.mul(PM.body.m, _pm, M4.compose(_pl, 0, -pick * 0.18, 0, pick * 0.35 - ch * 0.12, 0, 0));
+  partM(PM.legL.m, _pm, 0.12, 0.8 - hipDrop, 0, sw - pick * 0.12, 0, 0);
+  partM(PM.legR.m, _pm, -0.12, 0.8 - hipDrop, 0, -sw - pick * 0.12, 0, 0);
+  partM(_upper, _pm, 0, 0.78 - hipDrop, 0, pick * 0.48 + amp * 0.07 - ch * 0.06, 0, 0);
+  partM(PM.body.m, _upper, 0, -0.78, 0, 0, 0, 0);
+  partM(PM.armL.m, _upper, 0.275, 0.57, 0, -sw * 0.7 + paddle - 0.05 - wade * 0.48 - pick * 0.17 - ch * 1.05, 0, 0.08 + P.swim * 0.75 + wade * 0.32);
+  partM(PM.armR.m, _upper, -0.275, 0.57, 0, sw * 0.7 - paddle - 0.05 - wade * 0.48 - pick * 0.65 - ch * 0.57, 0, -0.08 - P.swim * 0.75 - wade * 0.32);
   const fill = G.bag ? bagUsed() / Math.max(1, upVal('bag')) : 0;
   const ps = 0.85 + fill * 0.45;
-  M4.mul(PM.pack.m, _pm, M4.compose(_pl, 0, 1.12 - pick * 0.15, -0.27 - fill * 0.06, pick * 0.3, 0, 0, ps, ps, ps));
+  partM(PM.pack.m, _upper, 0, 0.34, -0.27 - fill * 0.06, 0, 0, 0, ps);
   const bodyAlpha = cameraBodyAlpha();
   for (const k in PM) { PM[k].vis = P.vis && bodyAlpha > .001; PM[k].alpha = bodyAlpha; }
 }
@@ -5823,7 +5829,7 @@ function stepPlayer(dt) {
     else if (P.stam < smax * 0.9) toast('⚠ 물모래! 체력을 가득 채우고 단숨에 달려야 해요', 'warn', 2.8);
   }
   P.wasMud = mud;
-  if (P.pick > 0) { P.pick = Math.max(0, P.pick - dt * 3.2); spd *= 0.3; }
+  if (P.pick > 0) { P.pick = Math.max(0, P.pick - dt * 3.2); spd *= lerp(1, 0.78, smooth(0, 0.45, P.pick)); }
   const tvx = mag > 0.01 ? dx / (Math.hypot(dx, dz) || 1) * spd * mag : 0;
   const tvz = mag > 0.01 ? dz / (Math.hypot(dx, dz) || 1) * spd * mag : 0;
   const acc = mag > 0.01 ? 14 : 18;
@@ -8814,7 +8820,7 @@ function renderPort() {
     // 열 개 진열대: 종류별로 전시한 뒤 최대 10일간 연금을 받는다.
     if (!hallOpen()) {
       const nb = BASE_TYPES.filter(t => SAVE.dex[t]).length;
-      h = `<div class="reqcard empty"><b>🏗 전시실 터</b><p>광장 북동쪽, 의뢰 게시판 옆에 전시실을 지을 자리를 마련해 두었어요. 도감에 <b>보물 다섯 가지</b>를 모두 올리면 전시실이 지어져요.</p><p class="hint2">지금 ${nb}/5 — ${BASE_TYPES.filter(t => !SAVE.dex[t]).map(t => '???').join(' · ') || '모두 찾았어요'}</p></div>
+      h = `<div class="reqcard empty"><b>🏗 전시실 개방 조건</b><p>도감에 <b>보물 다섯 가지</b>를 모두 올리면 전시실이 지어져요.</p><p class="hint2">지금 ${nb}/5 — ${BASE_TYPES.filter(t => !SAVE.dex[t]).map(t => '???').join(' · ') || '모두 찾았어요'}</p></div>
         <p class="note">전시한 보물마다 하루 10 G씩 10일 동안 받아요.</p>`;
     } else {
       const slot = t => {
