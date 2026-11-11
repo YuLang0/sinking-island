@@ -2078,23 +2078,10 @@ uniform vec3 uTint;
 uniform float uSpec;
 uniform float uEmit;
 uniform float uFlood;
-uniform float uSee;
-uniform float uSeeOn;
-uniform vec2 uPS;
-uniform float uPViewZ;
-uniform float uSeeR;
 uniform float uAlpha;
 uniform float uTile;
 out vec4 oCol;
 void main() {
-  if (uSee > 0.5 && uSeeOn > 0.5 && vViewZ < uPViewZ - 1.0) {
-    vec2 dd = (gl_FragCoord.xy - uPS) / uSeeR;
-    float rr = dot(dd, dd);
-    if (rr < 1.0) {
-      float bn = fract(52.9829189 * fract(dot(floor(gl_FragCoord.xy), vec2(0.06711056, 0.00583715))));
-      if (bn > smoothstep(0.3, 1.0, rr) * 0.85) discard;
-    }
-  }
   vec3 n = normalize(vNrm);
   if (!gl_FrontFacing) n = -n;
   vec3 albedo = vCol * uTint;
@@ -2453,11 +2440,6 @@ void main() {
 }`;
 
 // 가려진 플레이어 실루엣
-const FS_XRAY = `
-uniform vec3 uXCol;
-out vec4 oCol;
-void main() { oCol = vec4(uXCol, 0.45); }`;
-
 let gl = null, CAN = null;
 const PROG = {};
 function compileShader(type, src) {
@@ -2909,18 +2891,18 @@ const R = {
   STATIC: [], DYN: [], INST: [], TEXQ: [],
   terrain: null, water: null, pathTex: null, shoreTex: null, shadowTex: null, shadowFB: null, dummyShadow: null,
   shadowSize: 0, shadowHalf: 26, sprites: null, decals: null, ripples: null,
-  W: 1, H: 1, time: 0, warn: 0, future: CFG.WL, seeOn: 0, ps: [0, 0], pViewZ: 0, xray: null,
+  W: 1, H: 1, time: 0, warn: 0, future: CFG.WL,
 };
 const MATS = {
-  stone: { flood: 1, see: 1, spec: 0.04 },
-  wood: { flood: 1, see: 1, spec: 0.03 },
-  plain: { flood: 0, see: 1, spec: 0.05 },
-  metal: { flood: 1, see: 0, spec: 0.55 },
+  stone: { flood: 1, spec: 0.04 },
+  wood: { flood: 1, spec: 0.03 },
+  plain: { flood: 0, spec: 0.05 },
+  metal: { flood: 1, spec: 0.55 },
   glow: { emit: 1 },
-  floor: { flood: 1, see: 0, spec: 0.03, tile: 1 },
-  leaf: { flood: 0, see: 1, spec: 0.02 },
-  solid: { flood: 1, see: 0, spec: 0.05 },
-  actor: { flood: 0, see: 0, spec: 0.12 },
+  floor: { flood: 1, spec: 0.03, tile: 1 },
+  leaf: { flood: 0, spec: 0.02 },
+  solid: { flood: 1, spec: 0.05 },
+  actor: { flood: 0, spec: 0.12 },
 };
 
 function initGL() {
@@ -2952,7 +2934,6 @@ function initGLResources() {
   PROG.sprite = makeProg(VS_SPRITE, FS_SPRITE, [], false);
   PROG.decal = makeProg(VS_DECAL, FS_DECAL);
   PROG.tex = makeProg(VS_TEX, FS_TEX);
-  PROG.xray = makeProg(VS_LIT, FS_XRAY, [], false);
   // 그림자가 꺼졌을 때 쓰는 1×1 깊이 텍스처
   R.dummyShadow = makeDepthTex(1);
   const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
@@ -3139,7 +3120,7 @@ function flushParts() {
 }
 // 움직이는 물체: o = { mat, cast, tint, alpha }
 function addDyn(mesh, o = {}) {
-  const d = { mesh, m: M4.ident(), mat: MATS[o.mat || 'plain'], vis: true, cast: o.cast !== false, tint: o.tint || [1, 1, 1], alpha: 1, xray: !!o.xray };
+  const d = { mesh, m: M4.ident(), mat: MATS[o.mat || 'plain'], vis: true, cast: o.cast !== false, tint: o.tint || [1, 1, 1], alpha: 1 };
   R.DYN.push(d);
   return d;
 }
@@ -3250,7 +3231,7 @@ function setCommon(P) {
 const U_LEVEL = { v: CFG.WL };
 const IDENT = M4.ident();
 function setMat(P, mat, tint, alpha = 1) {
-  u1f(P, 'uFlood', mat.flood ? 1 : 0); u1f(P, 'uSee', mat.see ? 1 : 0); u1f(P, 'uTile', mat.tile ? 1 : 0); u1f(P, 'uSpec', mat.spec || 0); u1f(P, 'uEmit', mat.emit ? 1 : 0);
+  u1f(P, 'uFlood', mat.flood ? 1 : 0); u1f(P, 'uTile', mat.tile ? 1 : 0); u1f(P, 'uSpec', mat.spec || 0); u1f(P, 'uEmit', mat.emit ? 1 : 0);
   u3v(P, 'uTint', tint || [1, 1, 1]); u1f(P, 'uAlpha', alpha);
 }
 function renderShadows() {
@@ -3289,7 +3270,6 @@ function renderScene() {
   drawTerrain(visCam);
   // 고정 구조물과 움직이는 물체
   P = PROG.lit; gl.useProgram(P.p); setCommon(P);
-  u1f(P, 'uSeeOn', R.seeOn); u2f(P, 'uPS', R.ps[0], R.ps[1]); u1f(P, 'uPViewZ', R.pViewZ); u1f(P, 'uSeeR', Math.max(60, CAN.height * 0.13));
   uM4(P, 'uModel', IDENT);
   for (const s of R.STATIC) { setMat(P, s.mat); drawChunked(s.mesh, visCam); }
   const transparent = _transp; transparent.length = 0;
@@ -3300,7 +3280,6 @@ function renderScene() {
   }
   // 식생 (인스턴스)
   P = PROG.litI; gl.useProgram(P.p); setCommon(P);
-  u1f(P, 'uSeeOn', R.seeOn); u2f(P, 'uPS', R.ps[0], R.ps[1]); u1f(P, 'uPViewZ', R.pViewZ); u1f(P, 'uSeeR', Math.max(60, CAN.height * 0.13));
   for (const s of R.INST) { if (!s.mesh.n) continue; setMat(P, s.mat); u1f(P, 'uSway', s.sway * (R.windMul || 1)); drawInstChunked(s.mesh, visCam); }
   // 글자 판
   gl.disable(gl.CULL_FACE);
@@ -3318,18 +3297,10 @@ function renderScene() {
   if (R.decals.n) { P = PROG.decal; gl.useProgram(P.p); setCommon(P); quadUpload(R.decals); gl.bindVertexArray(R.decals.vao); gl.drawElementsInstanced(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0, R.decals.n); }
   gl.disable(gl.POLYGON_OFFSET_FILL);
   gl.enable(gl.CULL_FACE);
-  // 가려진 플레이어 실루엣
-  if (R.xray && R.seeOn) {
-    P = PROG.xray; gl.useProgram(P.p); uM4(P, 'uVP', VP); uM4(P, 'uView', VIEW);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthFunc(gl.GREATER);
-    u3f(P, 'uXCol', 1.0, 0.82, 0.45);
-    for (const d of R.DYN) if (d.vis && d.xray && dynVisible(d, visCam)) { uM4(P, 'uModel', d.m); drawMesh(d.mesh); }
-    gl.depthFunc(gl.LEQUAL);
-  }
   // 반투명 물체
   if (transparent.length) {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(true);
-    P = PROG.lit; gl.useProgram(P.p); setCommon(P); u1f(P, 'uSeeOn', 0);
+    P = PROG.lit; gl.useProgram(P.p); setCommon(P);
     for (const d of transparent) { setMat(P, d.mat, d.tint, d.alpha); uM4(P, 'uModel', d.m); drawMesh(d.mesh); }
   }
   // 물
@@ -5646,10 +5617,10 @@ function buildPlayer() {
   for (const s of ['L', 'R']) {
     blk('tmpLeg' + s, 0, -0.62, 0, 0.19, 0.6, 0.2, pants, { r: 0.06 });
     blk('tmpLeg' + s, 0, -0.78, 0.04, 0.21, 0.2, 0.3, boot, { r: 0.07 });
-    PM['leg' + s] = dynFrom('tmpLeg' + s, { mat: 'actor', xray: true });
+    PM['leg' + s] = dynFrom('tmpLeg' + s, { mat: 'actor' });
     blk('tmpArm' + s, 0, -0.52, 0, 0.13, 0.52, 0.14, shirt, { r: 0.05 });
     ball('tmpArm' + s, 0, -0.6, 0.0, 0.075, skin, {});
-    PM['arm' + s] = dynFrom('tmpArm' + s, { mat: 'actor', xray: true });
+    PM['arm' + s] = dynFrom('tmpArm' + s, { mat: 'actor' });
   }
   // 몸통·머리·모자·가방 (발바닥을 원점으로)
   blk('tmpBody', 0, 0.74, 0, 0.5, 0.66, 0.3, shirt, { r: 0.1 });
@@ -5664,11 +5635,11 @@ function buildPlayer() {
   cyl('tmpBody', 0, 1.74, 0, 0.42, 0.42, 0.045, hat, { seg: 18, grad: 0 });
   cyl('tmpBody', 0, 1.78, 0, 0.19, 0.22, 0.2, hat, { seg: 14 });
   cyl('tmpBody', 0, 1.78, 0, 0.225, 0.225, 0.06, 0x8c3a2a, { seg: 14, grad: 0 });
-  PM.body = dynFrom('tmpBody', { mat: 'actor', xray: true });
+  PM.body = dynFrom('tmpBody', { mat: 'actor' });
   blk('tmpPack', 0, -0.22, 0, 0.42, 0.46, 0.22, 0x7a5434, { r: 0.08 });
   blk('tmpPack', 0, 0.08, 0.02, 0.44, 0.1, 0.25, 0x5a3c26, { r: 0.05 });
   cyl('tmpPack', 0, 0.2, 0.02, 0.1, 0.1, 0.44, 0xb39264, { seg: 8, rz: Math.PI / 2 });
-  PM.pack = dynFrom('tmpPack', { mat: 'actor', xray: true });
+  PM.pack = dynFrom('tmpPack', { mat: 'actor' });
 }
 const _pm = new Float32Array(16), _pl = new Float32Array(16);
 function partM(out, root, x, y, z, rx, ry, rz, s = 1) {
@@ -9409,16 +9380,6 @@ function envUpdate() {
   // 등대: 밀물이 높아질수록 밝아짐. 등롱 유리를 갈아 끼운 뒤(2단계)부터는 늘 은은하게, 불을 밝힌 밤에는 가장 밝게
   if (WORLD.beacon) WORLD.beacon.a = G.mode === 'title' ? 0.3 : Math.max(smooth(0.35, 0.9, G.time / CFG.T) * 0.95, (SAVE.light | 0) >= 2 ? 0.45 : 0, night && lightDone() ? 1 : 0);
 }
-function seeThroughUpdate() {
-  if (G.mode === 'title' || G.mode === 'boot' || firstPersonView()) { R.seeOn = 0; return; }
-  updateCamera();
-  const c = xform(VP, P.rx, P.ry + 0.9, P.rz);
-  if (c[3] <= 0) { R.seeOn = 0; return; }
-  R.ps[0] = (c[0] / c[3] * 0.5 + 0.5) * CAN.width; R.ps[1] = (c[1] / c[3] * 0.5 + 0.5) * CAN.height;
-  const v = xform(VIEW, P.rx, P.ry + 0.9, P.rz);
-  R.pViewZ = -v[2];
-  R.seeOn = 1;
-}
 function soundUpdate() {
   if (!SND.ready) return;
   if (G.mode === 'title') { SND.update({ wave: 0.35, wind: 0.25, ruins: 0, music: true, tension: 0, birds: 0.2, gulls: 0.25, heart: 0 }); return; }
@@ -9478,7 +9439,7 @@ function tickFrame(now) {
   if (G.mode !== 'pause') fxStep(dt);
   envUpdate();
   resizeGL();
-  seeThroughUpdate();
+  if (G.mode !== 'title' && G.mode !== 'boot' && !firstPersonView()) updateCamera();
   const p2 = performance.now();
   if (!GPU.lost) fxUpload(R.time);   // 그래픽 연결이 끊긴 동안에는 그리지 않음
   const p3 = performance.now();
@@ -9996,14 +9957,14 @@ window.__SI = {
     return { terrain: tri(R.terrain), static: st, staticN: R.STATIC.length, dyn: dy, dynN: R.DYN.length, inst, instTotal: inst.reduce((a, b) => a + b.total, 0) };
   },
   bench(n = 5) {
-    resizeGL(); seeThroughUpdate(); fxUpload(R.time);
+    resizeGL(); if (G.mode !== 'title' && G.mode !== 'boot' && !firstPersonView()) updateCamera(); fxUpload(R.time);
     renderScene(); gl.finish();
     const t0 = performance.now();
     for (let i = 0; i < n; i++) renderScene();
     gl.finish();
     return (performance.now() - t0) / n;
   },
-  render() { resizeGL(); seeThroughUpdate(); fxUpload(R.time); renderScene(); hudUpdate(0.2); },
+  render() { resizeGL(); if (G.mode !== 'title' && G.mode !== 'boot' && !firstPersonView()) updateCamera(); fxUpload(R.time); renderScene(); hudUpdate(0.2); },
   nav: (x, z) => navReturn(x, z, G.time),
   // 새 기능 확인용
   tide: () => ({ id: TIDE.id, wl: CFG.WL, wh: CFG.WH }),
@@ -10025,7 +9986,7 @@ window.__SI = {
     pause: () => pauseGame(), resume: () => resumeGame(), openSettings: () => openSettings(), closeSettings: () => closeSettings(),
     applyShadow: () => applyShadow(), resizeGL: () => resizeGL(), renderShadows: () => renderShadows(), renderScene: () => renderScene(),
     // 장면 고정: 같은 시각 t로 모형·보물·입자·환경을 맞춤 (dt 0, 애니메이션이 진행되지 않음)
-    freezeFrame(t) { updatePlayerModel(1, 0, t); updateItems(0, t); updateRelicModels(0, t); updateSpots(0, t); npcFrame(0, t); envUpdate(); seeThroughUpdate(); fxUpload(t); },
+    freezeFrame(t) { updatePlayerModel(1, 0, t); updateItems(0, t); updateRelicModels(0, t); updateSpots(0, t); npcFrame(0, t); envUpdate(); if (G.mode !== 'title' && G.mode !== 'boot' && !firstPersonView()) updateCamera(); fxUpload(t); },
     // 구조비·상점·시설·미니맵 크기 확인용
     rescue: why => rescue(why || 'deep'), rescueFee: () => rescueFee(), hasItem: id => hasItem(id), hasFac: id => hasFac(id), digTime: () => digTime(),
     crate: () => G.spots.find(q => q.kind === 'crate') || null, crabRocks: () => G.spots.filter(q => q.kind === 'rock' && q.out === 'crab' && !q.done), market: () => MARKET, marketOfDay: n => marketOfDay(n), priceOf: t => priceOf(t), weather: () => WEATHER.id,
