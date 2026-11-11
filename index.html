@@ -3938,6 +3938,7 @@ const FAC = {
   board: { x: BOARD.x, z: BOARD.z + 1, tab: 'request', name: '의뢰 게시판', act: '의뢰 보기', mk: [BOARD.x, 8.7, BOARD.z] },
 };
 const PORT_Y = 5.5;
+const LIGHTHOUSE_SITE = { x: -19.5, z: 34, approachZ: 30.95 };
 function house(cx, cz, w, d, h, o) {
   const y = PORT_Y;
   if (o.counterOpening) {
@@ -4054,7 +4055,8 @@ function buildPort() {
   const bg = addGlow(boardX, Y + 3.2, boardZ + 0.25, 1.5, [1.0, 0.82, 0.35], 0, { pulse: 0.45 });
   WORLD.anim.push(() => { bg.a = SAVE.req && !SAVE.reqSeen && G.mode !== 'title' ? 0.85 : 0; });
   // 등대: 밀물이 높아질수록 불빛이 밝아져 귀환 방향을 알려 줌
-  const LX = -19.5, LZ = 34, LS = 1.48, LY = terrainAt(LX, LZ) + 0.12;
+  const { x: LX, z: LZ, approachZ } = LIGHTHOUSE_SITE;
+  const LS = 1.48, LY = terrainAt(LX, LZ) + 0.12;
   const rAt = h => 1.42 - 0.42 * (h + 0.3) / 6.9;
   withOwnRng(4412, () => {
     const floor = Math.min(LY, terrainAt(LX - 2, LZ), terrainAt(LX + 2, LZ),
@@ -4150,7 +4152,14 @@ function buildPort() {
   }
   withOwnRng(3838, () => buildHall(Y));
   withOwnRng(3944, () => buildLighthouseParts(LY, LX, LZ, LS));
-  LATE_WORLD.push(() => addInter({ x: LX, z: LZ - 3.05, y: terrainAt(LX, LZ - 3.05), r: 1.6, name: '낡은 등대', on: () => SAVE.ended && !CH.on, act: () => lightDone() ? '밤 썰물 고르기' : '복원하기', prio: 1, mk: [LX, LY + 3.1, LZ - 2.2], use: () => openPort('light') }));
+  LATE_WORLD.push(() => addInter({
+    x: LX, z: approachZ, y: groundAt(LX, approachZ), r: 1.9, name: '낡은 등대', prio: 3,
+    on: () => !CH.on,
+    act: () => !SAVE.ended ? '살펴보기' : lightDone() ? '밤 썰물 고르기' : '복원하기',
+    can: () => SAVE.ended || '등대 복원은 섬의 엔딩을 본 뒤에 열려요.',
+    mk: [LX, groundAt(LX, approachZ) + 1.85, approachZ],
+    use: () => openPort('light'),
+  }));
   LATE_WORLD.push(() => withOwnRng(4179, () => buildHarborArchive(Y)));
 }
 // 부두 끝 왼쪽에 난간으로 둘러싸인 곁발판을 붙인다. 기존 중앙 통로의 폭은 그대로다.
@@ -7498,6 +7507,7 @@ function bmP(x, z) { const s = BM.D / MM.size; return [(x - MM.x0) * s, (z - MM.
 // 지도에 표시할 이름난 곳 (발견한 곳만 이름이 보임)
 const MAP_LABELS = [
   { t: '오래된 항구', x: -4, z: 29.6, always: true },
+  { t: '등대', x: LIGHTHOUSE_SITE.x, z: LIGHTHOUSE_SITE.z + 3.2, always: true },
   { t: '난파선', x: 55, z: 22.4 },
   { t: '동쪽 해변', x: 22, z: 34 },
   { t: '숲속 돌길', x: -6, z: 17.5 },
@@ -8912,7 +8922,7 @@ function renderPort() {
     // 등대 복원 (엔딩 뒤) · 다 고치면 밤 썰물 고르기
     const L = SAVE.light | 0;
     if (!SAVE.lightStarted) {
-      h = `<div class="reqcard empty"><b>🗼 등대 복원</b><p>섬의 비밀을 밝혔으니 이제 항구의 낡은 등대를 고칠 수 있어요. 복원을 마치면 밤 썰물 탐험이 열려요.</p><button class="btn primary" id="pmStartLight">시작하기</button></div>`;
+      h = `<div class="reqcard empty"><b>🗼 등대 복원</b><p>이제 항구 서쪽 해안 언덕의 등대를 고칠 수 있어요. 큰 지도에 등대 위치가 표시돼요. 복원을 마치면 밤 썰물 탐험이 열려요.</p><button class="btn primary" id="pmStartLight">시작하기</button></div>`;
     } else {
       const total = LIGHT_STAGES.reduce((a, q) => a + q.cost, 0), spent = LIGHT_STAGES.slice(0, L).reduce((a, q) => a + q.cost, 0);
       h = `<div class="feebox ${lightDone() ? 'ok' : ''}">🗼 등대 복원 <b>${L}/${LIGHT_STAGES.length}</b> · ${spent}/${total} G${lightDone() ? ' · 불이 켜졌어요' : ''}</div><div class="ups">` + LIGHT_STAGES.map((q, i) => {
@@ -8922,7 +8932,7 @@ function renderPort() {
       }).join('') + '</div>';
       if (lightDone()) h += `<h3>🌙 밤 썰물</h3><div class="nightpick"><button class="btn ${!SAVE.night ? 'primary' : 'dark'}" data-night="0">☀ 낮 썰물</button><button class="btn ${SAVE.night ? 'primary' : 'dark'}" data-night="1">🌙 밤 썰물</button></div>
         <p class="note">밤 썰물: 섬이 어둡고 멀리 보이지 않지만, 보물이 스스로 빛나고 등대 빛줄기가 바다를 훑어요. 희귀 변종이 세 배 자주 나와요. ${G.clock ? '오늘은 이미 나섰으니 다음 탐험부터 바뀌어요.' : '항구를 떠나기 전이라 오늘부터 바로 바뀌어요.'}</p>`;
-      else h += `<p class="note">네 단계를 모두 마치면 등대에 불이 켜지고, 밤 썰물 탐험을 고를 수 있어요.</p>`;
+      else h += `<p class="note">등대는 항구 서쪽 해안 언덕에 있어요. 네 단계를 모두 마치면 밤 썰물 탐험을 고를 수 있어요.</p>`;
     }
   } else {
     const st = SAVE.stats;
