@@ -400,6 +400,7 @@ body.cine #bubbles{visibility:hidden}
 .lg{display:inline-block;width:14px;height:14px;border-radius:4px;flex:none;border:1px solid rgba(0,0,0,.15)}
 .sw-deep{background:#2a6a90}.sw-shallow{background:#8cc7cf}.sw-soon{background:repeating-linear-gradient(45deg,#ff8a3a 0 3px,#f6c9a0 3px 6px)}
 .sw-fog{background:repeating-linear-gradient(-45deg,#e8dbbc 0 4px,#cdbf9c 4px 5px)}.sw-route{background:none;border:none;border-top:3px dashed #e7b500;height:3px;border-radius:0}
+.sw-lightpath{background:#267d70;border:0;height:3px}
 .sw-item{border-radius:50%;background:#ffd23f;border-color:#3a2a08}.sw-relic{transform:rotate(45deg) scale(.8);background:#8fe9ff;border-color:#1a2a30}
 .sw-mound{border:none;color:#7a4a1c;font-style:normal;font-weight:800;font-size:13px;line-height:14px;text-align:center}
 .sw-zone{border-radius:50%;background:#c9a227;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
@@ -3607,9 +3608,18 @@ function groundAt(x, z) {
 }
 // 항구(부두 포함)는 언제나 안전한 귀환 지점
 const PIER = { x0: -5.6, x1: -2.4, z0: 42, z1: 52 };
-function atPort(x, z) {
+const LIGHTHOUSE_SITE = { x: -19.5, z: 34, approachZ: 30.95, approachRadius: 1.9, entryX: -13.4, pathHalfWidth: 0.9 };
+function atMainPort(x, z) {
   return inPort(x, z) || (x > PIER.x0 && x < PIER.x1 && z > PIER.z0 && z < PIER.z1 + 0.4);
 }
+// 서쪽 능선길과 갈라지는 등대 연결로와 등대 앞 상호작용 범위만 포함한다.
+function onLighthouseApproach(x, z) {
+  const { x: endX, approachZ, approachRadius, entryX, pathHalfWidth } = LIGHTHOUSE_SITE;
+  const dz = z - approachZ;
+  return (x >= endX && x <= entryX && Math.abs(dz) <= pathHalfWidth) ||
+    Math.hypot(x - endX, dz) <= approachRadius;
+}
+function atPort(x, z) { return atMainPort(x, z) || (!CH.on && onLighthouseApproach(x, z)); }
 // (x,z)에서 (nx,nz)로 한 걸음 옮길 수 있는지: 진행 방향 앞쪽까지 높이 차이가 CLIMB 이하
 function canMove(x, z, nx, nz) {
   const dx = nx - x, dz = nz - z, d = Math.hypot(dx, dz) || 1;
@@ -3938,7 +3948,6 @@ const FAC = {
   board: { x: BOARD.x, z: BOARD.z + 1, tab: 'request', name: '의뢰 게시판', act: '의뢰 보기', mk: [BOARD.x, 8.7, BOARD.z] },
 };
 const PORT_Y = 5.5;
-const LIGHTHOUSE_SITE = { x: -19.5, z: 34, approachZ: 30.95 };
 function house(cx, cz, w, d, h, o) {
   const y = PORT_Y;
   if (o.counterOpening) {
@@ -4055,7 +4064,7 @@ function buildPort() {
   const bg = addGlow(boardX, Y + 3.2, boardZ + 0.25, 1.5, [1.0, 0.82, 0.35], 0, { pulse: 0.45 });
   WORLD.anim.push(() => { bg.a = SAVE.req && !SAVE.reqSeen && G.mode !== 'title' ? 0.85 : 0; });
   // 등대: 밀물이 높아질수록 불빛이 밝아져 귀환 방향을 알려 줌
-  const { x: LX, z: LZ, approachZ } = LIGHTHOUSE_SITE;
+  const { x: LX, z: LZ, approachZ, approachRadius } = LIGHTHOUSE_SITE;
   const LS = 1.48, LY = terrainAt(LX, LZ) + 0.12;
   const rAt = h => 1.42 - 0.42 * (h + 0.3) / 6.9;
   withOwnRng(4412, () => {
@@ -4153,7 +4162,7 @@ function buildPort() {
   withOwnRng(3838, () => buildHall(Y));
   withOwnRng(3944, () => buildLighthouseParts(LY, LX, LZ, LS));
   LATE_WORLD.push(() => addInter({
-    x: LX, z: approachZ, y: groundAt(LX, approachZ), r: 1.9, name: '낡은 등대', prio: 3,
+    x: LX, z: approachZ, y: groundAt(LX, approachZ), r: approachRadius, name: '낡은 등대', prio: 3,
     on: () => !CH.on,
     act: () => !SAVE.ended ? '살펴보기' : lightDone() ? '밤 썰물 고르기' : '복원하기',
     can: () => SAVE.ended || '등대 복원은 섬의 엔딩을 본 뒤에 열려요.',
@@ -4368,13 +4377,29 @@ function buyLightStage() {
   requestSave();
   return true;
 }
-// 밤 썰물 선택: 항구를 떠나기 전이면 오늘 바로, 이미 나섰으면 다음 탐험부터
+// 오늘 보물 배치를 다시 계산해도 이미 주웠거나 조사한 보물이 되살아나지 않을 때만 즉시 바꾼다.
+function canSwitchNightToday() {
+  return !G.clock && G.inPort && !G.dayDone && G.expItems === 0 && !G.spots.some(s => s.done);
+}
 function setNightPref(on) {
-  if (!lightDone()) return false;
+  if (CH.on || SAVE_IO.readonly || !lightDone()) return false;
   SAVE.night = !!on;
-  if (!G.clock && G.inPort && !G.dayDone) {
-    G.night = SAVE.night;
-    spawnTreasures(); spawnSpots(); applyShopEffects();   // 희귀 변종 확률(밤에는 3배)에 맞춰 오늘 보물을 다시 놓음 (같은 날·같은 자리)
+  if (canSwitchNightToday()) {
+    if (G.night !== SAVE.night) {
+      const dropped = G.items.filter(it => it.alive && it.dropped);
+      const seen = new Map(G.items.filter(it => it.alive && !it.dropped && it.seen)
+        .map(it => [`${it.x},${it.z}`, it.scoped]));
+      G.night = SAVE.night;
+      // 희귀 변종 확률만 바뀌며 보물 자리, 발견 표시, 내려놓은 보물은 보존한다.
+      spawnTreasures();
+      spawnSpots();
+      for (const it of G.items) {
+        const key = `${it.x},${it.z}`;
+        if (seen.has(key)) { it.seen = true; it.scoped = seen.get(key); }
+      }
+      for (const it of dropped) spawnItem(it.type, it.x, it.z, null, { seen: it.seen, dropped: true });
+      applyShopEffects();
+    }
     toast(G.night ? '🌙 오늘은 밤 썰물로 나가요 — 어둡지만 보물이 빛나고, 희귀 변종이 세 배 자주 나와요' : '☀ 오늘은 낮 썰물로 나가요', 'info', 3.6);
   } else toast(SAVE.night ? '🌙 다음 탐험부터 밤 썰물로 나가요' : '☀ 다음 탐험부터 낮 썰물로 나가요', 'info', 3);
   requestSave();
@@ -5433,7 +5458,7 @@ function fxUpload(time) {
 /* =========================================================
    16. 길찾기 격자: 귀환 시간 예측, 미니맵 귀환 경로
    ========================================================= */
-const NAV = { x0: -48, z0: -54, cell: 1.0, nx: 114, nz: 108, h: null, ok: null, e: null, port: null, ft: null, fd: null };
+const NAV = { x0: -48, z0: -54, cell: 1.0, nx: 114, nz: 108, h: null, ok: null, e: null, port: null, lighthouse: null, ft: null, fd: null };
 const NDIR = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
 function navNodeH(x, z) { return groundAt(x, z); }
 function navEdgeOK(x0, z0, x1, z1) {
@@ -5455,7 +5480,8 @@ function buildNav(bx0 = -1e9, bx1 = 1e9, bz0 = -1e9, bz1 = 1e9) {
   const full = !NAV.h;
   if (full) {
     NAV.h = new Float32Array(nx * nz); NAV.ok = new Uint8Array(nx * nz); NAV.e = new Uint8Array(nx * nz);
-    NAV.port = new Uint8Array(nx * nz); NAV.ft = new Float32Array(nx * nz); NAV.fd = new Float64Array(nx * nz);
+    NAV.port = new Uint8Array(nx * nz); NAV.lighthouse = new Uint8Array(nx * nz);
+    NAV.ft = new Float32Array(nx * nz); NAV.fd = new Float64Array(nx * nz);
     NAV.mud = new Uint8Array(nx * nz); NAV.cur = new Uint8Array(nx * nz);
   }
   NAV.mudIdx = null;   // 물모래 칸 번호는 다음 길찾기 때 다시 매김
@@ -5468,7 +5494,9 @@ function buildNav(bx0 = -1e9, bx1 = 1e9, bz0 = -1e9, bz1 = 1e9) {
     const h = navNodeH(x, z);
     NAV.h[k] = h;
     NAV.ok[k] = (!blockedAt(x, z, 0.34) && h > -4) ? 1 : 0;
-    NAV.port[k] = atPort(x, z) ? 1 : 0;
+    // 보물·의뢰 배치에는 원래 항구 격자를 쓰고, 등대 연결로는 본편 귀환에만 사용한다.
+    NAV.port[k] = atMainPort(x, z) ? 1 : 0;
+    NAV.lighthouse[k] = !NAV.port[k] && onLighthouseApproach(x, z) ? 1 : 0;
     NAV.ft[k] = tideTimeFor(h + CFG.DANGER);
     NAV.fd[k] = tideTimeFor(h + CFG.DANGER - 0.02);
     NAV.mud[k] = onMudAt(x, z) ? 1 : 0;
@@ -5584,6 +5612,7 @@ function navReturn(px, pz, now, speed = CFG.WALK, goal = null, ov = null) {
   const smax = ov ? ov.smax : upVal('stamina'), stamNow = ov ? ov.stam : P.exhausted ? 0 : P.stam;
   const mudBlocked = smax < MUD_STAM, wadeLv = ov ? ov.wadeLv : SAVE.up.wade, mudSp = CFG.RUN * 0.88, danger = CFG.DANGER - 0.02, WADE = CFG.WADE;
   const H = NAV.h, E = NAV.e, MUD = NAV.mud, CUR = NAV.cur, FD = NAV.fd, PORT = NAV.port, MI = NAV.mudIdx, ML = NAV.mudList;
+  const lighthouse = CH.on ? null : NAV.lighthouse;
   for (let d = 0; d < 8; d++) { NAV_OFF[d] = NDIR[d][1] * nx + NDIR[d][0]; NAV_DIST[d] = (d & 1) ? cell * 1.4142 : cell; }
   // 힙 (키가 같으면 예전 Heap과 같은 순서로 꺼냄: 같은 이진 힙 규칙)
   const hp = _navHp; let hk = hp.k, hv = hp.v, hn = 0;
@@ -5607,7 +5636,7 @@ function navReturn(px, pz, now, speed = CFG.WALK, goal = null, ov = null) {
     const Tid = T[id];
     if (key > Tid) continue;
     const k = id < n ? id : ML[((id - n) / LL) | 0];
-    if (goal ? goal(k) : PORT[k]) {
+    if (goal ? goal(k) : PORT[k] || lighthouse?.[k]) {
       // 경로를 되짚으며 가장 빠듯한 칸의 여유를 잼
       const path = []; let margin = deadline - (now + Tid); let c = id;
       while (c >= 0) {
@@ -5964,7 +5993,7 @@ function onFootstep() {
 function surfaceAt(x, z) {
   const h = groundAt(x, z);
   if (GP) return GP.kind;
-  if (atPort(x, z)) return 'stone';
+  if (atMainPort(x, z)) return 'stone';
   if (pathDistAt(x, z) < 0.1) return pathKindAt(x, z) === 0 ? 'sand' : 'stone';
   return h > 2.8 ? 'grass' : 'sand';
 }
@@ -7058,6 +7087,11 @@ function interact() {
   if (G.mode !== 'play' || G.cine) return;
   const n = G.near;
   if (!n) return;
+  // 등대에 가는 길은 출항 전에도 걸을 수 있지만, 그곳에서 보물을 조사하면 탐험을 시작한다.
+  if ((n.item || n.spot) && !G.clock && atPort(P.x, P.z) && !atMainPort(P.x, P.z)) {
+    startClock();
+    markDeparture();
+  }
   if (n.item) { pickupItem(n.item); return; }
   if (n.spot) { if (G.dig) return; if (n.spot.kind === 'mound') startDig(n.spot); else finishSpot(n.spot); return; }
   const it = n.inter, c = it.can();
@@ -7580,6 +7614,14 @@ function drawBigMap() {
     c.lineJoin = 'round'; c.lineWidth = 4 * u; c.strokeStyle = o.halo || 'rgba(250,244,228,.92)';
     c.strokeText(txt, x, y); c.fillStyle = o.col || '#26363a'; c.fillText(txt, x, y);
   };
+  if (!CH.on) {
+    const { x, approachZ, entryX } = LIGHTHOUSE_SITE;
+    const [ax, ay] = bmP(entryX, approachZ), [bx, by] = bmP(x, approachZ);
+    c.save();
+    c.beginPath(); c.moveTo(ax, ay); c.lineTo(bx, by);
+    c.strokeStyle = '#267d70'; c.lineWidth = 3 * u; c.lineCap = 'round'; c.stroke();
+    c.restore();
+  }
   // 귀환 경로 (끊겼으면 가장 가까운 안전한 높은 곳까지의 길을 푸른 점선으로)
   const ret = G.ret, show = SET.mapShow;
   const routePath = (path, col) => {
@@ -7709,6 +7751,7 @@ function renderMapSide() {
       <span><i class="lg sw-deep"></i>위험한 깊은 물</span><span><i class="lg sw-shallow"></i>얕은 물 (느려짐)</span>
       <span><i class="lg sw-soon"></i>30초 안에 잠김</span><span><i class="lg sw-fog"></i>아직 못 가 본 곳</span>
       <span><i class="lg sw-route"></i>항구로 가는 길</span><span><i class="lg sw-item"></i>발견한 보물</span>
+      ${CH.on ? '' : '<span><i class="lg sw-lightpath"></i>등대길</span>'}
       <span><i class="lg sw-relic"></i>유물</span><span><i class="lg sw-zone"></i>잠기는 길목 (차례)</span>
       <span><i class="lg sw-mound">✕</i>발견한 모래 둔덕</span>
     </div>`;
@@ -8922,7 +8965,7 @@ function renderPort() {
     // 등대 복원 (엔딩 뒤) · 다 고치면 밤 썰물 고르기
     const L = SAVE.light | 0;
     if (!SAVE.lightStarted) {
-      h = `<div class="reqcard empty"><b>🗼 등대 복원</b><p>이제 항구 서쪽 해안 언덕의 등대를 고칠 수 있어요. 큰 지도에 등대 위치가 표시돼요. 복원을 마치면 밤 썰물 탐험이 열려요.</p><button class="btn primary" id="pmStartLight">시작하기</button></div>`;
+      h = `<div class="reqcard empty"><b>🗼 등대 복원</b><p>이제 항구 서쪽 해안 언덕의 등대를 고칠 수 있어요. 큰 지도(M)의 청록색 등대길을 따라 항구에서 오갈 수 있어요. 복원을 마치면 밤 썰물 탐험이 열려요.</p><button class="btn primary" id="pmStartLight">시작하기</button></div>`;
     } else {
       const total = LIGHT_STAGES.reduce((a, q) => a + q.cost, 0), spent = LIGHT_STAGES.slice(0, L).reduce((a, q) => a + q.cost, 0);
       h = `<div class="feebox ${lightDone() ? 'ok' : ''}">🗼 등대 복원 <b>${L}/${LIGHT_STAGES.length}</b> · ${spent}/${total} G${lightDone() ? ' · 불이 켜졌어요' : ''}</div><div class="ups">` + LIGHT_STAGES.map((q, i) => {
@@ -8931,7 +8974,7 @@ function renderPort() {
         return `<div class="up${done ? ' owned' : ''}" id="light_${i}"><h4>${i + 1}. ${q.name}</h4><p class="ds">${q.desc}</p><div class="price">${q.cost} G</div>${btn}</div>`;
       }).join('') + '</div>';
       if (lightDone()) h += `<h3>🌙 밤 썰물</h3><div class="nightpick"><button class="btn ${!SAVE.night ? 'primary' : 'dark'}" data-night="0">☀ 낮 썰물</button><button class="btn ${SAVE.night ? 'primary' : 'dark'}" data-night="1">🌙 밤 썰물</button></div>
-        <p class="note">밤 썰물: 섬이 어둡고 멀리 보이지 않지만, 보물이 스스로 빛나고 등대 빛줄기가 바다를 훑어요. 희귀 변종이 세 배 자주 나와요. ${G.clock ? '오늘은 이미 나섰으니 다음 탐험부터 바뀌어요.' : '항구를 떠나기 전이라 오늘부터 바로 바뀌어요.'}</p>`;
+        <p class="note">밤 썰물: 섬이 어둡고 멀리 보이지 않지만, 보물이 스스로 빛나고 등대 빛줄기가 바다를 훑어요. 희귀 변종이 세 배 자주 나와요. ${canSwitchNightToday() ? '지금 고르면 오늘부터 바로 바뀌어요.' : '선택은 다음 탐험부터 적용돼요.'}</p>`;
       else h += `<p class="note">등대는 항구 서쪽 해안 언덕에 있어요. 네 단계를 모두 마치면 밤 썰물 탐험을 고를 수 있어요.</p>`;
     }
   } else {
