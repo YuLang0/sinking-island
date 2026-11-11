@@ -4054,14 +4054,20 @@ function buildPort() {
   const bg = addGlow(boardX, Y + 3.2, boardZ + 0.25, 1.5, [1.0, 0.82, 0.35], 0, { pulse: 0.45 });
   WORLD.anim.push(() => { bg.a = SAVE.req && !SAVE.reqSeen && G.mode !== 'title' ? 0.85 : 0; });
   // 등대: 밀물이 높아질수록 불빛이 밝아져 귀환 방향을 알려 줌
-  const LX = -12.4, LZ = 41.2, rAt = y => 1.42 - 0.42 * (y - Y + 0.3) / 6.9;
-  cyl('plain', LX, Y - 0.3, LZ, 1.0, 1.42, 6.9, C.plaster, { seg: 16, grad: 0.15 });
-  for (const b of [1.3, 3.9]) cyl('plain', LX, Y + b, LZ, rAt(Y + b + 0.7) + 0.03, rAt(Y + b) + 0.03, 0.7, C.red, { seg: 16, grad: 0, jit: 0 });
-  cyl('wood', LX, Y + 6.6, LZ, 1.35, 1.35, 0.22, C.woodD, { seg: 16 });
-  cyl('glow', LX, Y + 6.82, LZ, 0.62, 0.62, 0.85, 0xfff0b8, { seg: 12, grad: 0, jit: 0 });
-  cyl('plain', LX, Y + 7.67, LZ, 0.06, 0.9, 0.85, C.red, { seg: 12, grad: 0.1 });
-  WORLD.beacon = addGlow(LX, Y + 7.25, LZ, 7, [1.0, 0.9, 0.6], 0.0);
-  colCircle(LX, LZ, 1.45, Y + 6.6);
+  const LX = -19.5, LZ = 34, LS = 1.48, LY = terrainAt(LX, LZ) + 0.12;
+  const rAt = h => 1.42 - 0.42 * (h + 0.3) / 6.9;
+  withOwnRng(4412, () => {
+    const floor = Math.min(LY, terrainAt(LX - 2, LZ), terrainAt(LX + 2, LZ),
+      terrainAt(LX, LZ - 2), terrainAt(LX, LZ + 2)) - 0.36;
+    cyl('stone', LX, floor, LZ, 2.26, 2.43, LY - floor, C.stone2, { seg: 16 });
+  });
+  cyl('plain', LX, LY - 0.3 * LS, LZ, LS, 1.42 * LS, 6.9 * LS, C.plaster, { seg: 16, grad: 0.15 });
+  for (const b of [1.3, 3.9]) cyl('plain', LX, LY + b * LS, LZ, (rAt(b + 0.7) + 0.03) * LS, (rAt(b) + 0.03) * LS, 0.7 * LS, C.red, { seg: 16, grad: 0, jit: 0 });
+  cyl('wood', LX, LY + 6.6 * LS, LZ, 1.35 * LS, 1.35 * LS, 0.22 * LS, C.woodD, { seg: 16 });
+  cyl('glow', LX, LY + 6.82 * LS, LZ, 0.62 * LS, 0.62 * LS, 0.85 * LS, 0xfff0b8, { seg: 12, grad: 0, jit: 0 });
+  cyl('plain', LX, LY + 7.67 * LS, LZ, 0.06 * LS, 0.9 * LS, 0.85 * LS, C.red, { seg: 12, grad: 0.1 });
+  WORLD.beacon = addGlow(LX, LY + 7.25 * LS, LZ, 7 * LS, [1.0, 0.9, 0.6], 0.0);
+  colCircle(LX, LZ, 2.31, LY + 6.6 * LS);
   // 부두: 높은 나무 데크와 기둥
   addPad(PIER.x0, PIER.x1, PIER.z0, PIER.z1, Y + 0.06, 'wood', { shore: false });
   for (let i = 0; i < 20; i++) blk('wood', -4, Y - 0.12, 42.25 + i * 0.5, 3.2, 0.18, 0.47, i % 2 ? C.wood : C.woodL, { r: 0.03, grad: 0 });
@@ -4121,7 +4127,10 @@ function buildPort() {
     const r0 = a * Math.PI / 180, r1 = (a + 10) * Math.PI / 180;
     const x0 = PORT.x + 11.7 * Math.cos(r0), z0 = PORT.z + 9.7 * Math.sin(r0);
     const x1 = PORT.x + 11.7 * Math.cos(r1), z1 = PORT.z + 9.7 * Math.sin(r1);
-    if (Math.hypot((x0 + x1) / 2 - LX, (z0 + z1) / 2 - LZ) < 2.5) continue;
+    if (Math.hypot((x0 + x1) / 2 + 12.4, (z0 + z1) / 2 - 41.2) < 2.5) {
+      withOwnRng(4124 + a, () => wall(x0, z0, x1, z1, Y - 0.6, Y + 0.6, 0.5, { color: C.stone }));
+      continue;
+    }
     wall(x0, z0, x1, z1, Y - 0.6, Y + 0.6, 0.5, { color: C.stone });
   }
   // 소품
@@ -4140,8 +4149,8 @@ function buildPort() {
     addInter({ x: f.x, z: f.z, y: Y, r: 1.9, name: f.name, act: f.act, prio: 2, mk: f.mk, use: () => openPort(f.tab) });
   }
   withOwnRng(3838, () => buildHall(Y));
-  withOwnRng(3944, () => buildLighthouseParts(Y, LX, LZ));
-  LATE_WORLD.push(() => addInter({ x: LX + 1.9, z: LZ - 1.0, y: Y, r: 1.6, name: '낡은 등대', on: () => SAVE.ended && !CH.on, act: () => lightDone() ? '밤 썰물 고르기' : '복원하기', prio: 1, mk: [LX, Y + 8.6, LZ], use: () => openPort('light') }));
+  withOwnRng(3944, () => buildLighthouseParts(LY, LX, LZ, LS));
+  LATE_WORLD.push(() => addInter({ x: LX, z: LZ - 3.05, y: terrainAt(LX, LZ - 3.05), r: 1.6, name: '낡은 등대', on: () => SAVE.ended && !CH.on, act: () => lightDone() ? '밤 썰물 고르기' : '복원하기', prio: 1, mk: [LX, LY + 3.1, LZ - 2.2], use: () => openPort('light') }));
   LATE_WORLD.push(() => withOwnRng(4179, () => buildHarborArchive(Y)));
 }
 // 부두 끝 왼쪽에 난간으로 둘러싸인 곁발판을 붙인다. 기존 중앙 통로의 폭은 그대로다.
@@ -4302,13 +4311,13 @@ const LIGHT_STAGES = [
 ];
 const LIGHT_PARTS = { scaf: null, lens: null, beams: [], x: 0, z: 0, y: 0 };
 function lightDone() { return (SAVE.light | 0) >= LIGHT_STAGES.length; }
-function buildLighthouseParts(Y, LX, LZ) {
-  LIGHT_PARTS.x = LX; LIGHT_PARTS.z = LZ; LIGHT_PARTS.y = Y + 7.25;
+function buildLighthouseParts(Y, LX, LZ, scale) {
+  LIGHT_PARTS.x = LX; LIGHT_PARTS.z = LZ; LIGHT_PARTS.y = Y + 7.25 * scale;
   // 비계: 네 기둥과 둘레 판자 (복원 중에만)
-  for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + 0.4; cyl('tmpLScaf', LX + Math.cos(a) * 1.85, Y - 0.2, LZ + Math.sin(a) * 1.85, 0.07, 0.08, 7.4, C.woodL, { seg: 6 }); }
+  for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + 0.4; cyl('tmpLScaf', LX + Math.cos(a) * 1.85 * scale, Y - 0.2 * scale, LZ + Math.sin(a) * 1.85 * scale, 0.07, 0.08, 7.4 * scale, C.woodL, { seg: 6 }); }
   for (const h of [1.6, 3.6, 5.6]) for (let i = 0; i < 4; i++) {
-    const a0 = i / 4 * TAU + 0.4, a1 = (i + 1) / 4 * TAU + 0.4, x0 = LX + Math.cos(a0) * 1.85, z0 = LZ + Math.sin(a0) * 1.85, x1 = LX + Math.cos(a1) * 1.85, z1 = LZ + Math.sin(a1) * 1.85;
-    blk('tmpLScaf', (x0 + x1) / 2, Y + h, (z0 + z1) / 2, Math.hypot(x1 - x0, z1 - z0), 0.08, 0.32, C.wood, { ry: -Math.atan2(z1 - z0, x1 - x0), r: 0.02, grad: 0 });
+    const a0 = i / 4 * TAU + 0.4, a1 = (i + 1) / 4 * TAU + 0.4, x0 = LX + Math.cos(a0) * 1.85 * scale, z0 = LZ + Math.sin(a0) * 1.85 * scale, x1 = LX + Math.cos(a1) * 1.85 * scale, z1 = LZ + Math.sin(a1) * 1.85 * scale;
+    blk('tmpLScaf', (x0 + x1) / 2, Y + h * scale, (z0 + z1) / 2, Math.hypot(x1 - x0, z1 - z0), 0.08, 0.32, C.wood, { ry: -Math.atan2(z1 - z0, x1 - x0), r: 0.02, grad: 0 });
   }
   LIGHT_PARTS.scaf = dynFrom('tmpLScaf', { mat: 'plain' });
   // 회전 렌즈 (3단계부터)
@@ -4316,16 +4325,16 @@ function buildLighthouseParts(Y, LX, LZ) {
   for (const s of [-1, 1]) blk('tmpLLens', s * 0.36, -0.22, 0, 0.12, 0.44, 0.7, 0xffe9a8, { r: 0.04, grad: 0, jit: 0 });
   LIGHT_PARTS.lens = dynFrom('tmpLLens', { mat: 'glow', cast: false });
   // 빛줄기: 렌즈에서 양쪽으로 뻗는 빛 점들 (4단계)
-  for (let s = 0; s < 2; s++) for (let i = 0; i < 6; i++) LIGHT_PARTS.beams.push({ g: addGlow(LX, Y + 7.25, LZ, 2.4 + i * 0.7, [1.0, 0.93, 0.7], 0, { shape: 1 }), s, i });
+  for (let s = 0; s < 2; s++) for (let i = 0; i < 6; i++) LIGHT_PARTS.beams.push({ g: addGlow(LX, Y + 7.25 * scale, LZ, 2.4 + i * 0.7, [1.0, 0.93, 0.7], 0, { shape: 1 }), s, i });
   WORLD.sync.push(syncLighthouse);
   WORLD.anim.push((dt, t) => {
     const L = SAVE.light | 0, ang = t * 0.55;
-    if (LIGHT_PARTS.lens.vis) M4.compose(LIGHT_PARTS.lens.m, LX, Y + 7.25, LZ, 0, ang, 0);
+    if (LIGHT_PARTS.lens.vis) M4.compose(LIGHT_PARTS.lens.m, LX, Y + 7.25 * scale, LZ, 0, ang, 0, scale, scale, scale);
     const on = L >= LIGHT_STAGES.length && G.mode !== 'title';
     const k = on ? (G.night ? 1 : 0.35 + 0.4 * (WORLD.beacon ? WORLD.beacon.a : 0)) : 0;
     for (const b of LIGHT_PARTS.beams) {
-      const a = ang + b.s * Math.PI, d = 1.4 + b.i * 1.9;
-      b.g.x = LX + Math.cos(a) * d; b.g.z = LZ - Math.sin(a) * d; b.g.y = Y + 7.25 - b.i * 0.18;
+      const a = ang + b.s * Math.PI, d = (1.4 + b.i * 1.9) * scale;
+      b.g.x = LX + Math.cos(a) * d; b.g.z = LZ - Math.sin(a) * d; b.g.y = Y + 7.25 * scale - b.i * 0.18;
       b.g.a = k * (0.55 - b.i * 0.07);
     }
   });
@@ -4887,15 +4896,7 @@ function buildDecor() {
   }
   // 숲길 석등
   for (const [x, z] of [[1.6, 20.5], [-2.4, 2.0], [2.2, -1.6], [-6.6, -9.8], [-29.0, 15.0], [-30.6, -15.5], [15.5, 15.6]]) stoneLantern(x, z);
-  // 갯벌의 낡은 그물 말뚝: 물이 오르며 차례로 잠김
-  for (let i = 0; i < 9; i++) {
-    const x = 18 + i * 2.2, z = 46.2 - Math.sin(i * 0.6) * 1.2, y = terrainAt(x, z);
-    cyl('wood', x, y - 0.4, z, 0.1, 0.13, 1.7 + (i % 3) * 0.25, C.woodD, { seg: 7 });
-  }
-  for (let i = 0; i < 6; i++) {
-    const x = 30.5 + i * 2.0, z = 40.5 + i * 0.6, y = terrainAt(x, z);
-    cyl('wood', x, y - 0.4, z, 0.09, 0.12, 1.5 + (i % 2) * 0.3, C.woodD, { seg: 7 });
-  }
+  reserveModelColors(15);  // 말뚝은 바위 배치가 끝난 뒤에 그린다.
   // 해변 유목과 뒤집힌 쪽배
   for (const [x, z, a] of [[21.95, 29.6, 1.07], [23.1, 28.95, 1.07]]) {
     const dx = Math.cos(a) * 1.3, dz = Math.sin(a) * 1.3;
@@ -4925,8 +4926,21 @@ function buildDecor() {
   for (const [x, z] of shoreSpots) {
     const sz = 0.8 + rr() * 1.1, fl = 0.6 + rr() * 0.4;
     rock(x, z, sz, { flat: fl, col: terrainAt(x, z) > -0.4 });
-    WORLD.shoreRocks.push({ x, z, r: sz * 0.95, y0: terrainAt(x, z), top: terrainAt(x, z) + sz * fl * 1.1, t: rr() * 3 });
+    WORLD.shoreRocks.push({ x, z, r: sz * 0.95, clearance: sz * 1.55 + 0.18, y0: terrainAt(x, z), top: terrainAt(x, z) + sz * fl * 1.1, t: rr() * 3 });
   }
+  withOwnRng(4890, () => {
+    // 갯벌의 낡은 그물 말뚝: 물이 오르며 차례로 잠김
+    for (let i = 0; i < 9; i++) {
+      const x = 18 + i * 2.2, z = 46.2 - Math.sin(i * 0.6) * 1.2, y = terrainAt(x, z);
+      if (WORLD.shoreRocks.some(rock => Math.hypot(x - rock.x, z - rock.z) < rock.clearance)) continue;
+      cyl('wood', x, y - 0.4, z, 0.1, 0.13, 1.7 + (i % 3) * 0.25, C.woodD, { seg: 7 });
+    }
+    for (let i = 0; i < 6; i++) {
+      const x = 30.5 + i * 2.0, z = 40.5 + i * 0.6, y = terrainAt(x, z);
+      if (WORLD.shoreRocks.some(rock => Math.hypot(x - rock.x, z - rock.z) < rock.clearance)) continue;
+      cyl('wood', x, y - 0.4, z, 0.09, 0.12, 1.5 + (i % 2) * 0.3, C.woodD, { seg: 7 });
+    }
+  });
   // 바위에 부딪혀 부서지는 물보라: 물높이가 바위에 걸쳐 있을 때만, 카메라 가까이에서
   WORLD.anim.push(dt => {
     if (REDUCED) return;
