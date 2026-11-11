@@ -2261,6 +2261,8 @@ void main() {
   vec2 p = wp.xz;
   float top = topAt(p);
   float depth = uLevel - top;
+  float pixel = max(length(dFdx(p)), length(dFdy(p)));
+  float shoreAA = clamp(fwidth(depth), 0.018, 0.16);
   if (depth < -0.06) discard;
   // 거품 무늬는 물가(얕은 곳)에서만 쓰임
   float nfo = depth < 1.2 ? fbm2(p * 0.9 + vec2(t * 0.16, -t * 0.11)) : 0.5;
@@ -2268,6 +2270,10 @@ void main() {
          + wv(p, normalize(vec2(-0.5, 0.85)), 1.6, 1.7, t) * 0.28
          + wv(p, normalize(vec2(0.95, -0.3)), 2.7, 2.3, t) * 0.14
          + (vec2(vnoise(p * 1.7 + t * 0.4), vnoise(p * 1.7 - t * 0.35 + 7.0)) - 0.5) * 0.9;
+  // 작은 잔물결은 멀리서 점멸하지 않도록 픽셀 크기에 맞춰 흐려진다.
+  float fine = 1.0 - smoothstep(0.06, 0.30, pixel);
+  g += fine * (wv(p, vec2(0.6, -0.8), 5.1, 2.8, t) * 0.055
+             + wv(p, vec2(0.8, 0.6), 7.6, 3.9, t) * 0.028);
   vec3 n = normalize(vec3(-g.x * 0.09, 1.0, -g.y * 0.09));
   vec3 v = normalize(uCamPos - wp);
   float fres = 0.03 + 0.97 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
@@ -2278,16 +2284,18 @@ void main() {
   col *= 0.6 + 0.4 * sh;
   col = mix(col, uSkyCol * 1.1, fres * 0.55);
   vec3 r = reflect(-v, n);
-  col += uSunCol * pow(max(dot(r, uSunDir), 0.0), 260.0) * 2.2 * sh;
+  float sun = max(dot(r, uSunDir), 0.0);
+  col += uSunCol * (pow(sun, 72.0) * 0.34 + pow(sun, 220.0) * 1.55) * sh;
   float alpha = clamp(0.16 + depth * 0.6, 0.0, 0.97);
   alpha = max(alpha, fres * 0.5);
-  float swash = 0.05 * sin(t * 0.8 + p.x * 0.13 + p.y * 0.09);
+  float swash = 0.045 * sin(t * 1.1 + p.x * 0.15 + p.y * 0.10)
+              + 0.023 * sin(t * 1.8 - p.x * 0.37 + p.y * 0.25);
   float dd = depth + swash;
-  float shore = (1.0 - smoothstep(0.0, 0.12 + 0.12 * nfo, dd)) * smoothstep(-0.04, 0.02, dd);
+  float shore = (1.0 - smoothstep(0.0, 0.09 + 0.12 * nfo + shoreAA, dd)) * smoothstep(-0.04, 0.02, dd);
   float band = sin(dd * 6.5 - t * 1.6 + nfo * 3.5);
   float lines = smoothstep(0.86, 0.98, band) * (1.0 - smoothstep(0.08, 0.95, dd)) * smoothstep(0.0, 0.04, dd);
   float foam = clamp(shore * (0.5 + 0.7 * nfo) + lines * (0.25 + 0.6 * nfo), 0.0, 1.0);
-  col = mix(col, vec3(1.05, 1.08, 1.1), foam);
+  col = mix(col, vec3(0.83, 0.94, 0.94), foam * 0.92);
   alpha = max(alpha, foam * 0.92);
   oCol = vec4(finish(col, wp), alpha);
 }`;
@@ -4463,7 +4471,7 @@ function buildSigns() {
   signpost(27.6, 23.2, '↑ 물길 지름길 · 유적');
   signpost(-12.6, -10.4, '↑ 유적 둑길');
   signpost(-29.8, 10.4, '↑ 능선길 · 유적');
-  signpost(-6.0, 11.6, '↑ 골짜기 위쪽');
+  reserveModelColors(1);   // 제거한 골짜기 방향 표지판
   signpost(36.2, 41.6, '→ 산호 암초 (물살 주의)');
   signpost(37.7, 1.4, '→ 갈매기 바위 (물모래 주의)');
 }
@@ -4519,7 +4527,10 @@ function buildRuins() {
   wall(11.0, -29.45, 25.5, -29.45, -0.9, 3.7, 0.9, { color: C.ruinD });
   wall(11.6, -25.55, 25.5, -25.55, -0.9, 2.0, 0.9, { color: C.ruinD, broken: 0.25 });
   wall(25.5, -29.9, 25.5, -25.1, -0.9, 3.7, 0.9, { color: C.ruinD });
-  for (const x of [13.6, 19.6, 23.6]) blk('stone', x, 3.55, -27.5, 0.7, 0.5, 4.8, C.ruin, { grad: 0.1 });
+  // 벽에 물린 짧은 들보 잔해. 철문 위의 들보만 양쪽 기둥 사이를 잇는다.
+  for (const [x, length, tilt] of [[13.6, 0.95, 0.13], [19.6, 1.30, 0.19], [23.6, 0.77, 0.09]]) {
+    blk('stone', x, 3.52, -29.47 + length * 0.35, 0.68, 0.43, length, C.ruin, { rx: tilt, grad: 0.18, r: 0.065 });
+  }
   // 회랑 벽의 빛나는 해초
   for (let i = 0; i < 6; i++) addGlow(13 + i * 2.2, 1.0 + srng() * 1.2, -28.85, 0.9, [0.45, 1.0, 0.9], 0.35, { pulse: 0.3 });
   // 철문 (위쪽 테라스의 손잡이로 엶)
@@ -5863,6 +5874,11 @@ function stepPlayer(dt) {
   }
   P.wasMud = mud;
   if (P.pick > 0) { P.pick = Math.max(0, P.pick - dt * 3.2); spd *= lerp(1, 0.78, smooth(0, 0.45, P.pick)); }
+  if (P.pickup) {
+    const t = P.pickup.fly;
+    const held = smooth(0.38, 0.48, t) * (1 - smooth(0.74, 0.99, t));
+    spd *= 1 - held * 0.12;
+  }
   const tvx = mag > 0.01 ? dx / (Math.hypot(dx, dz) || 1) * spd * mag : 0;
   const tvz = mag > 0.01 ? dz / (Math.hypot(dx, dz) || 1) * spd * mag : 0;
   const acc = mag > 0.01 ? 14 : 18;
