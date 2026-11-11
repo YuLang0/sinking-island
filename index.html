@@ -3393,6 +3393,9 @@ function resizeGL() {
    ========================================================= */
 const GRID = { x0: -72, z0: -72, cell: 0.6, n: 241 };
 const SEA = -6;
+const RUINS_ENTRY_DECK = [-13, -5.4, -31.2, -24.5, 3.0];
+const RUINS_COURTYARD_DECK = [-3, 11, -31, -20, 1.6];
+const RUINS_PATH_DECKS = [RUINS_ENTRY_DECK, RUINS_COURTYARD_DECK];
 // [중심x, 중심z, 반경x, 반경z, 높이, 가장자리 폭, 노이즈, 돔, 기울기x, 기울기z]
 const BLOBS = [
   [-4, 35, 12, 10, 5.5, 2.4, 0, 0, 0, 0],          // 오래된 항구 고지대
@@ -3492,6 +3495,13 @@ function designH(x, z) {
   for (const a of AREAS) {
     const d = Math.hypot(x - a[0], z - a[1]);
     if (d < a[2] + a[4]) H = lerp(a[3], H, smooth(a[2], a[2] + a[4], d));
+  }
+  // 둑길과 지름길의 지면이 같은 높이의 포석을 뚫고 비치지 않도록 낮춘다.
+  for (const [x0, x1, z0, z1, top] of RUINS_PATH_DECKS) {
+    const outside = Math.max(x0 - x, x - x1, z0 - z, z - z1);
+    if (outside < GRID.cell && H > top - 0.12) {
+      H = lerp(top - 0.12, H, smooth(0, GRID.cell, outside));
+    }
   }
   return H;
 }
@@ -4393,7 +4403,7 @@ function buildRuins() {
     column(x, z, y, 1.4 + srng() * 1.4, 0.32, { broken: srng() < 0.6, moss: true });
   }
   // --- 입구 테라스 (높이 3.0) ---
-  deck(-13, -5.4, -31.2, -24.5, 3.0);
+  deck(...RUINS_ENTRY_DECK);
   column(-12.1, -25.1, 3.0, 4.4, 0.5, { moss: true });
   column(-7.9, -25.1, 3.0, 4.4, 0.5, { moss: true });
   blk('stone', -10, 7.4, -25.1, 5.4, 0.7, 1.3, C.ruin, { grad: 0.2 });   // 아치 상인방
@@ -4403,7 +4413,7 @@ function buildRuins() {
   // 입구 → 아래 뜰 계단 (동쪽으로 내려감)
   flight(-5.4, -3.0, -29.0, -26.0, 'x', 3.0, 1.6, 4);
   // --- 유적 아래 뜰 (높이 1.6) ---
-  deck(-3, 11, -31, -20, 1.6);
+  deck(...RUINS_COURTYARD_DECK);
   deck(4.6, 13.4, -33.2, -31, 1.6);
   deck(5.8, 8.2, -35.8, -33.2, 1.6, { moss: false });           // 연못 나루
   // 석호로 내려가는 계단: 물이 차오르면 한 칸씩 잠김
