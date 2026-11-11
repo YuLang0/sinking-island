@@ -2798,6 +2798,14 @@ function blk(key, x, y0, z, w, h, d, color, o = {}) {
 function cyl(key, x, y0, z, rt, rb, h, color, o = {}) {
   return put(key, gCyl(rt, rb, h, o.seg || 12, o.caps !== false), x, y0 + h / 2, z, color, o);
 }
+// 기울인 원통의 중심 대신 양 끝을 지정한다.
+function cylinderBetween(key, from, to, topRadius, bottomRadius, color, segments = 12) {
+  const dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
+  const yz = Math.hypot(dy, dz);
+  const geometry = gCyl(topRadius, bottomRadius, Math.hypot(dx, yz), segments);
+  put(key, geometry, (from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2, color,
+    { rx: Math.atan2(dz, dy), rz: -Math.atan2(dx, yz) });
+}
 function ball(key, x, y, z, r, color, o = {}) {
   const q = Object.assign({}, o, { sx: r * (o.sx || 1), sy: r * (o.flat || 1) * (o.sy || 1), sz: r * (o.sz || 1) });
   return put(key, gSphere(o.sub ?? 1, o.bump ?? 0, o.seed ?? 1), x, y, z, color, q);
@@ -3944,7 +3952,7 @@ function buildPort() {
   house(2.4, 38.6, 4.4, 4.2, 2.6, { key: 'wood', wall: C.woodL, roof: C.teal, rh: 1.6 });
   blk('wood', -0.35, Y, 38.6, 0.9, 0.95, 2.2, C.wood);
   blk('metal', -0.35, Y + 0.95, 38.2, 0.55, 0.28, 0.32, C.metal, { r: 0.05 });
-  cyl('wood', -0.35, Y + 0.95, 39.2, 0.05, 0.05, 0.6, C.woodD, { seg: 6, rz: 1.2 });
+  cylinderBetween('wood', [-0.55, Y + 1.0, 39.16], [-0.14, Y + 1.0, 39.25], 0.045, 0.05, C.woodD, 8);
   colBox(-0.35, 38.6, 0.45, 1.1, 0, Y + 1.25);
   addTexQuad(signCanvas('은비의 공방', 280, 96), 1.64, 0.56, 2.4, Y + 1.75, 40.76, 0);
   withOwnRng(3846, () => {
@@ -4018,10 +4026,26 @@ function buildPort() {
   colCircle(TX, TZ, 0.3, 6);
   // 망원경: 멀리 북쪽 유적을 살펴봄
   const SX = -8.4, SZ = 27.3;
-  cyl('wood', SX, Y, SZ, 0.05, 0.05, 1.1, C.woodD, { seg: 6, rx: 0.25 });
-  cyl('wood', SX, Y, SZ, 0.05, 0.05, 1.1, C.woodD, { seg: 6, rx: -0.25, rz: 0.22 });
-  cyl('wood', SX, Y, SZ, 0.05, 0.05, 1.1, C.woodD, { seg: 6, rx: -0.25, rz: -0.22 });
-  cyl('metal', SX, Y + 1.05, SZ - 0.1, 0.07, 0.1, 0.9, 0xb98a3c, { seg: 10, rx: Math.PI / 2 - 0.35 });
+  reserveModelColors(4);
+  withOwnRng(273, () => {
+    const hub = [SX, Y + 1.14, SZ];
+    for (const [dx, dz] of [[0, -0.34], [-0.31, 0.2], [0.31, 0.2]]) {
+      const x = SX + dx, z = SZ + dz, ground = groundAt(x, z);
+      cylinderBetween('wood', [x, ground - 0.025, z], hub, 0.045, 0.071, C.woodD, 8);
+      cyl('metal', x, ground - 0.02, z, 0.085, 0.09, 0.09, 0x5f5140, { seg: 10 });
+    }
+    cyl('metal', SX, Y + 1.08, SZ, 0.13, 0.12, 0.16, 0xb68c4e);
+    blk('metal', SX, Y + 1.2, SZ, 0.16, 0.16, 0.19, 0x8b6735, { r: 0.035 });
+    const tube = (a, b, r1, r0, color) => cylinderBetween('metal',
+      [SX, Y + 1.43 + a * 0.3, SZ - a], [SX, Y + 1.43 + b * 0.3, SZ - b], r1, r0, color, 18);
+    tube(-0.53, 0.54, 0.117, 0.088, 0x225962);
+    tube(-0.65, -0.5, 0.083, 0.067, 0x3a342d);
+    tube(-0.38, -0.30, 0.102, 0.102, 0xd6a956);
+    tube(0.27, 0.34, 0.126, 0.126, 0xd6a956);
+    tube(0.46, 0.60, 0.151, 0.125, 0xd6a956);
+    tube(0.60, 0.615, 0.127, 0.127, 0x173741);
+    tube(0.615, 0.63, 0.105, 0.105, 0x72bbd2);
+  });
   colCircle(SX, SZ, 0.4, Y + 1.4);
   addInter({ x: SX, z: SZ + 0.6, y: Y, name: '망원경', act: '유적 살펴보기', mk: [SX, Y + 2.0, SZ], use: () => lookAtRuins() });
   // 고지대 가장자리의 낮은 돌담 (출입구 네 곳은 비워 둠)
@@ -4452,7 +4476,7 @@ function buildRuins() {
   wall(-3.0, -31.0, -3.0, -29.2, 1.6, 2.6, 0.6, { color: C.ruinD, broken: 0.3 });
   wall(-3.0, -25.8, -3.0, -21.5, 1.6, 2.3, 0.6, { color: C.ruinD, broken: 0.4 });
   // 쓰러진 기둥 (걸터앉을 수 있는 높이)
-  for (let i = 0; i < 4; i++) cyl('stone', 2.0 + i * 1.05, 1.6, -28.2 - i * 0.18, 0.42, 0.42, 1.0, C.ruin, { seg: 12, rz: Math.PI / 2, grad: 0.1 });
+  for (let i = 0; i < 4; i++) put('stone', gCyl(0.42, 0.42, 1.0), 2.0 + i * 1.05, 2.02, -28.2 - i * 0.18, C.ruin, { rz: Math.PI / 2, grad: 0.1 });
   colBox(3.6, -28.5, 2.2, 0.48, 0.17, 2.45);
   stoneLantern(9.8, -23.0, 1.6);
   stoneLantern(-1.8, -22.0, 1.6);
@@ -4827,8 +4851,10 @@ function buildDecor() {
   }
   // 해변 유목과 뒤집힌 쪽배
   for (const [x, z, a] of [[19, 35.5, 0.4], [33, 34.5, -0.3], [12.5, 38.5, 1.2]]) {
-    const y = terrainAt(x, z);
-    cyl('wood', x, y + 0.12, z, 0.16, 0.22, 2.6, 0x9b8366, { seg: 8, rz: Math.PI / 2, ry: a });
+    const dx = Math.cos(a) * 1.3, dz = Math.sin(a) * 1.3;
+    const from = [x + dx, terrainAt(x + dx, z + dz) + 0.19, z + dz];
+    const to = [x - dx, terrainAt(x - dx, z - dz) + 0.13, z - dz];
+    cylinderBetween('wood', from, to, 0.16, 0.22, 0x9b8366, 8);
   }
   const bx = 22.5, bz = 29.0, byy = terrainAt(bx, bz);
   put('wood', gLathe([[0.05, 0], [0.62, 0.05], [0.72, 0.32], [0.7, 0.42]], 10), bx, byy + 0.42, bz, C.teal, { sx: 1, sy: -1, sz: 2.2, ry: 0.5 });
