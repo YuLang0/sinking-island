@@ -3593,11 +3593,8 @@ function groundAt(x, z) {
 }
 // 항구(부두 포함)는 언제나 안전한 귀환 지점
 const PIER = { x0: -5.6, x1: -2.4, z0: 42, z1: 52 };
-const ARCHIVE_PIER = { x0: -8.28, x1: -5.54, z0: 48.68, z1: 52 };
 function atPort(x, z) {
-  const p=ARCHIVE_PIER;
-  return inPort(x, z) || (x > PIER.x0 && x < PIER.x1 && z > PIER.z0 && z < PIER.z1 + 0.4)
-    || (x >= p.x0 && x <= p.x1 && z >= p.z0 && z <= p.z1);
+  return inPort(x, z) || (x > PIER.x0 && x < PIER.x1 && z > PIER.z0 && z < PIER.z1 + 0.4);
 }
 // (x,z)에서 (nx,nz)로 한 걸음 옮길 수 있는지: 진행 방향 앞쪽까지 높이 차이가 CLIMB 이하
 function canMove(x, z, nx, nz) {
@@ -3931,19 +3928,19 @@ function house(cx, cz, w, d, h, o) {
   const y = PORT_Y;
   if (o.counterOpening) {
     const wallWidth = 0.22, opening = 2.6, side = (d - opening) / 2;
-    const east = cx + (w - wallWidth) / 2;
+    const front = o.counterOpening, face = front * (w - wallWidth) / 2;
     reserveModelColors(1);
     withOwnRng(3661, () => {
       const panel = (x, z, width, depth, bottom, height) =>
-        blk('plain', x, y + bottom, z, width, height, depth, o.wall, { grad: 0.22, r: 0 });
-      panel(cx - (w - wallWidth) / 2, cz, wallWidth, d, -0.4, h + 0.4);
+        blk(o.key || 'plain', x, y + bottom, z, width, height, depth, o.wall, { grad: 0.22, r: 0 });
+      panel(cx - face, cz, wallWidth, d, -0.4, h + 0.4);
       for (const dir of [-1, 1]) {
         panel(cx, cz + dir * (d - wallWidth) / 2, w - 2 * wallWidth, wallWidth, -0.4, h + 0.4);
-        panel(east, cz + dir * (opening + side) / 2, wallWidth, side, -0.4, h + 0.4);
+        panel(cx + face, cz + dir * (opening + side) / 2, wallWidth, side, -0.4, h + 0.4);
       }
-      panel(east, cz, wallWidth, opening, -0.4, 1.45);
-      panel(east, cz, wallWidth, opening, 2.45, h - 2.45);
-      blk('wood', cx, y - 0.2, cz, w - 0.46, 0.2, d - 0.46, 0x896848, { r: 0 });
+      panel(cx + face, cz, wallWidth, opening, -0.4, 1.45);
+      panel(cx + face, cz, wallWidth, opening, 2.45, h - 2.45);
+      blk('wood', cx, y - 0.18, cz, w - 0.46, 0.24, d - 0.46, 0x896848, { r: 0 });
     });
   } else {
     blk(o.key || 'plain', cx, y - 0.4, cz, w, h + 0.4, d, o.wall, { grad: 0.3 });
@@ -3956,10 +3953,10 @@ function house(cx, cz, w, d, h, o) {
 function buildPort() {
   const Y = PORT_Y;
   // 항구 사무소: 동쪽 창구에서 정산
-  house(-10.6, 36.6, 5.4, 5.0, 3.0, { wall: C.plaster, roof: C.roof, rh: 2.0, counterOpening: true });
+  house(-10.6, 36.6, 5.4, 5.0, 3.0, { wall: C.plaster, roof: C.roof, rh: 2.0, counterOpening: 1 });
   blk('wood', -7.45, Y, 36.6, 0.9, 1.05, 2.6, C.woodL);
   colBox(-7.45, 36.6, 0.45, 1.3, 0, Y + 1.05);
-  for (let i = 0; i < 4; i++) blk('plain', -7.05, Y + 2.45, 35.6 + i * 0.66, 1.7, 0.1, 0.66, i % 2 ? C.cloth : C.red, { rz: -0.3, r: 0.02, grad: 0 });
+  for (let i = 0; i < 4; i++) blk('plain', -7.29, Y + 2.29, 35.64 + i * 0.64, 1.29, 0.085, 0.635, i % 2 ? C.cloth : C.red, { rz: -0.11, r: 0.018, grad: 0 });
   reserveModelColors(3);
   withOwnRng(366, () => {
     // 벽 바깥의 불투명한 청회색 유리와 창틀. 벽과 겹치는 면을 두지 않는다.
@@ -3975,7 +3972,7 @@ function buildPort() {
   });
   const officeSign = signCanvas('항구 사무소', 320, 96);
   addTexQuad(officeSign, 2.8, 0.84, -10.6, Y + 2.2, 39.15, 0);
-  addTexQuad(officeSign, 2.1, 0.39, -7.64, Y + 2.82, 36.6, Math.PI / 2);
+  addTexQuad(officeSign, 2.1, 0.40, -7.50, Y + 2.73, 36.6, Math.PI / 2);
   withOwnRng(3662, () => {
     // 창구 둘레 나무틀과 안쪽 선반
     for (const z of [35.3, 37.9]) blk('wood', -7.86, Y + 1.04, z, 0.22, 1.45, 0.13, C.woodD);
@@ -3997,7 +3994,7 @@ function buildPort() {
   cyl('metal', -7.45, Y + 1.13, 37.3, 0.04, 0.04, 0.35, C.metal, { seg: 6 });
   blk('plain', -7.45, Y + 1.05, 36.0, 0.5, 0.06, 0.7, 0x7b3a2a, { r: 0.02 });
   // 공방: 서쪽 작업대에서 업그레이드
-  house(2.4, 38.6, 4.4, 4.2, 2.6, { key: 'wood', wall: C.woodL, roof: C.teal, rh: 1.6 });
+  house(2.4, 38.6, 4.4, 4.2, 2.6, { key: 'wood', wall: C.woodL, roof: C.teal, rh: 1.6, counterOpening: -1 });
   blk('wood', -0.35, Y, 38.6, 0.9, 0.95, 2.2, C.wood);
   blk('metal', -0.35, Y + 0.95, 38.2, 0.55, 0.28, 0.32, C.metal, { r: 0.05 });
   cylinderBetween('wood', [-0.55, Y + 1.0, 39.16], [-0.14, Y + 1.0, 39.25], 0.045, 0.05, C.woodD, 8);
@@ -4007,18 +4004,22 @@ function buildPort() {
     // 지붕 끝, 작업대 쪽 간판, 나무 창틀
     for (const x of [-0.35, 5.15]) blk('wood', x, Y + 2.42, 38.6, 0.13, 0.16, 5.45, C.woodD);
     for (const z of [35.95, 41.25]) blk('wood', 2.4, Y + 2.42, z, 5.55, 0.16, 0.13, C.woodD);
-    addTexQuad(signCanvas('은비의 공방', 280, 96), 1.64, 0.52, 0.025, Y + 2.2, 38.6, -Math.PI / 2);
-    const windowZ = 39.92;
-    blk('wood', 0.145, Y + 1.12, windowZ, 0.18, 0.88, 1.03, C.woodD);
-    blk('plain', 0.045, Y + 1.21, windowZ, 0.05, 0.69, 0.84, 0x386774, { grad: 0 });
+    addTexQuad(signCanvas('은비의 공방', 280, 96), 1.82, 0.38, -0.49, Y + 2.40, 38.6, -Math.PI / 2);
+    for (let i = 0; i < 4; i++) blk('plain', -0.36, Y + 2.10, 37.67 + i * 0.62, 1.03, 0.08, 0.615,
+      i % 2 ? C.cloth : C.teal, { rz: 0.10, grad: 0, r: 0.015 });
+    for (const z of [37.29, 39.91]) blk('wood', 0.16, Y + 1.02, z, 0.21, 1.40, 0.12, C.woodD);
+    blk('wood', 0.09, Y + 1.0, 38.6, 0.34, 0.095, 2.7, C.woodL);
+    const windowZ = 40.17;
+    blk('wood', 0.145, Y + 1.12, windowZ, 0.18, 0.88, 0.72, C.woodD);
+    blk('plain', 0.045, Y + 1.21, windowZ, 0.05, 0.69, 0.59, 0x386774, { grad: 0 });
     blk('wood', 0.005, Y + 1.21, windowZ, 0.055, 0.69, 0.07, C.woodL);
-    blk('wood', 0.005, Y + 1.52, windowZ, 0.055, 0.07, 0.84, C.woodL);
-    blk('wood', 0.005, Y + 1.08, windowZ, 0.26, 0.09, 1.11, C.woodL);
+    blk('wood', 0.005, Y + 1.52, windowZ, 0.055, 0.07, 0.59, C.woodL);
+    blk('wood', 0.005, Y + 1.08, windowZ, 0.26, 0.09, 0.78, C.woodL);
     // 공구 걸이와 작업대 아래 서랍
-    blk('wood', 0.145, Y + 1.22, 37.44, 0.18, 0.75, 1.0, C.woodD);
-    for (const z of [37.18, 37.65]) {
-      cyl('wood', 0.02, Y + 1.33, z, 0.032, 0.032, 0.39, C.woodL, { seg: 8 });
-      blk('metal', 0.01, Y + 1.69, z, 0.12, 0.10, 0.23, C.metal, { r: 0.015 });
+    blk('wood', 1.65, Y + 1.22, 37.86, 0.18, 0.75, 1.0, C.woodD);
+    for (const z of [37.62, 38.08]) {
+      cyl('wood', 1.52, Y + 1.33, z, 0.032, 0.032, 0.39, C.woodL, { seg: 8 });
+      blk('metal', 1.51, Y + 1.69, z, 0.12, 0.10, 0.23, C.metal, { r: 0.015 });
     }
     for (const z of [38.12, 39.08]) {
       blk('wood', -0.81, Y + 0.38, z, 0.06, 0.39, 0.83, C.woodL, { r: 0.045 });
@@ -4053,10 +4054,12 @@ function buildPort() {
   for (const z of [44.4, 47.4, 50.4, 51.8]) for (const x of [-5.45, -2.55]) {
     cyl('wood', x, -6.5, z, 0.17, 0.21, 6.4 + Y, C.woodD, { seg: 8 });
     if (x > -5 || z !== 50.4) cyl('wood', x, Y, z, 0.07, 0.07, 0.95, C.woodD, { seg: 6 });
+    else withOwnRng(5040, () => cyl('wood', x, Y, z, 0.07, 0.07, 0.95, C.woodD, { seg: 6 }));
   }
   blk('wood', -2.55, Y + 0.9, 47.5, 0.12, 0.1, 9.6, C.wood, { r: 0.03 });
+  withOwnRng(4180, () => blk('wood', -5.45, Y + 0.9, 47.5, 0.12, 0.1, 9.6, C.wood, { r: 0.03 }));
+  colBox(-5.62, 47.2, 0.08, 4.9, 0, Y + 1);
   colBox(-2.38, 47.2, 0.08, 4.9, 0, Y + 1); colBox(-4, 52.12, 1.7, 0.1, 0, Y + 1);
-  withOwnRng(4180, () => buildArchivePier(Y));
   // 계류된 구조선: 물 높이를 따라 오르내림
   blk('tmpBoat', 0, -0.32, 0, 1.5, 0.6, 3.6, C.wood, { r: 0.24 });
   blk('tmpBoat', 0, 0.16, 0, 1.62, 0.12, 3.7, C.woodD, { r: 0.05, grad: 0 });
@@ -4112,10 +4115,10 @@ function buildPort() {
   barrel(5.4, 36.4); crate(5.7, 35.1, 0.8, 0.5); barrel(-14.0, 35.2); crate(-14.4, 36.4, 0.8, 0.15);
   lamp(-6.4, 43.5); lamp(-1.6, 43.5);
   reserveModelColors(3);   // 제거한 중앙 전등: 기둥·불빛·덮개
-  lamp(-8.2, 30.6);
+  lamp(-9.65, 27.75);
   // 항구 사람들: 항구지기 마 선장, 공방 장인 은비, 고양이 고등어
   buildNPC('captain', '항구지기 마 선장', -8.63, 36.6, Math.PI / 2, { skin: 0xe8b98f, shirt: 0xf1ead8, coat: 0x2e4a6b, pants: 0x3b3a44, hat: 'cap', beard: true });
-  buildNPC('artisan', '공방 장인 은비', -0.9, 40.55, Math.PI / 2, { skin: 0xf0c7a0, shirt: 0xd9e6e4, coat: null, apron: 0x8a5a36, pants: 0x4a5a6a, hat: 'band' });
+  buildNPC('artisan', '공방 장인 은비', 0.95, 38.6, -Math.PI / 2, { skin: 0xf0c7a0, shirt: 0xd9e6e4, coat: null, apron: 0x8a5a36, pants: 0x4a5a6a, hat: 'band' });
   buildCat(-7.2, 41.0, PORT_Y + 0.9);   // 부두 옆 나무 상자 위에서 볕을 쬠
   // 시설 상호작용
   for (const k in FAC) {
@@ -4129,25 +4132,6 @@ function buildPort() {
 }
 // 부두 끝 왼쪽에 난간으로 둘러싸인 곁발판을 붙인다. 기존 중앙 통로의 폭은 그대로다.
 const ARCHIVE = { x: BOARD.x - 2.65, z: BOARD.z, front: BOARD.z + 1.43 };
-function buildArchivePier(y) {
-  const {x0,x1,z0,z1}=ARCHIVE_PIER, xm=(x0+x1)/2, zm=(z0+z1)/2;
-  addPad(x0,x1,z0,z1,y+.06,'wood',{shore:false});
-  for(let i=0;i<7;i++) blk('wood',xm,y-.12,z0+(i+.5)*(z1-z0)/7,x1-x0,.18,(z1-z0)/7-.018,i%2?C.woodL:C.wood,{r:.025,grad:0});
-  for(const x of [x0+.21,x1-.20]) for(const z of [z0+.23,z1-.24])
-    cyl('wood',x,-6.5,z,.17,.22,6.48+y,C.woodD,{seg:8});
-  function rail(ax,az,bx,bz) {
-    const x=(ax+bx)/2,z=(az+bz)/2,dx=Math.abs(bx-ax),dz=Math.abs(bz-az);
-    for(const [px,pz] of [[ax,az],[bx,bz]])
-      cyl('wood',px,y,pz,.071,.077,.96,C.woodD,{seg:6});
-    blk('wood',x,y+.86,z,dx||.12,.10,dz||.12,C.wood,{r:.025,grad:0});
-    colBox(x,z,dx/2+.065,dz/2+.065,0,y+1);
-  }
-  rail(-5.62,42.3,-5.62,49.83);
-  rail(-5.62,51.86,-5.62,52.12);
-  rail(x0+.04,z0+.04,x0+.04,z1-.04);
-  rail(x0+.04,z0+.04,-5.62,z0+.04);
-  rail(x0+.04,z1-.04,-5.62,z1-.04);
-}
 // 의뢰 게시판 옆에서 장부를 펼쳐 볼 수 있는 기록대.
 function buildHarborArchive(y) {
   const {x,z,front}=ARCHIVE, key='tmpHarborArchive';
@@ -4191,7 +4175,6 @@ function lateWorld() {
   LATE_WORLD.length = 0;
   buildNav(HALL.x - 3, HALL.x + 3, HALL.z - 2.5, HALL.z + 2.5);   // 전시실 자리의 길찾기 칸만 다시 계산
   buildNav(ARCHIVE.x - 2, ARCHIVE.x + 2, ARCHIVE.z - 2, ARCHIVE.z + 2);
-  buildNav(ARCHIVE_PIER.x0,PIER.x1,ARCHIVE_PIER.z0,ARCHIVE_PIER.z1);
 }
 const HALL_SLOTS = [...BASE_TYPES, ...RARE_TYPES];
 const HALL_PARTS = { built: null, sign: null, collision: null, items: {}, glows: {} };
@@ -4816,7 +4799,7 @@ function buildWestHill() {
   addInter({ x: MX + Math.sin(mry) * 1.0, z: MZ + Math.cos(mry) * 1.0, y: my, r: 1.6, name: '낡은 벽화', act: '살펴보기', mk: [MX, my + 1.9, MZ],
     use: () => openReader('낡은 벽화', '물결 위로 세 개의 그림이 차례로 새겨져 있다.\n\n첫째 — 물결 아래로 가라앉는 무언가. 아래를 향한 화살표.\n둘째 — 물결 위로 솟아오르는 무언가. 위를 향한 화살표.\n셋째 — 그 아래 물결이 높이 일어선다.\n\n석판에 새겨진 그림과 닮았다.') });
   // 언덕을 둘러싼 선돌
-  for (const [x, z, h] of [[-41.5, -1.0, 2.2], [-35.0, -5.6, 1.6], [-41.0, 4.6, 1.4], [-33.0, 4.4, 1.2]]) {
+  for (const [x, z, h] of [[-41.5, -1.0, 2.2], [-35.0, -5.6, 1.6], [-41.0, 4.6, 1.4], [-36.0, 3.35, 0.85]]) {
     const y = groundAt(x, z);
     blk('stone', x, y - 0.2, z, 0.7, h, 0.5, C.ruinD, { ry: srng() * 3, rz: (srng() - 0.5) * 0.2, grad: 0.4 });
     colCircle(x, z, 0.45, y + h);
@@ -4896,12 +4879,13 @@ function buildDecor() {
     cyl('wood', x, y - 0.4, z, 0.09, 0.12, 1.5 + (i % 2) * 0.3, C.woodD, { seg: 7 });
   }
   // 해변 유목과 뒤집힌 쪽배
-  for (const [x, z, a] of [[19, 35.5, 0.4], [33, 34.5, -0.3], [12.5, 38.5, 1.2]]) {
+  for (const [x, z, a] of [[21.95, 29.6, 1.07], [23.1, 28.95, 1.07]]) {
     const dx = Math.cos(a) * 1.3, dz = Math.sin(a) * 1.3;
     const from = [x + dx, terrainAt(x + dx, z + dz) + 0.19, z + dz];
     const to = [x - dx, terrainAt(x - dx, z - dz) + 0.13, z - dz];
     cylinderBetween('wood', from, to, 0.16, 0.22, 0x9b8366, 8);
   }
+  reserveModelColors(1);
   const bx = 22.5, bz = 29.0, byy = terrainAt(bx, bz);
   put('wood', gLathe([[0.05, 0], [0.62, 0.05], [0.72, 0.32], [0.7, 0.42]], 10), bx, byy + 0.42, bz, C.teal, { sx: 1, sy: -1, sz: 2.2, ry: 0.5 });
   colBox(bx, bz, 0.75, 1.6, 0.5, byy + 0.5);
@@ -6002,21 +5986,16 @@ function cancelCameraOrbit(e) {
 }
 function setupCameraOrbit() {
   CAN.addEventListener('pointerdown', e => {
-    if (!canAdjustCamera() || ORBIT.id !== null || (e.button !== 0 && !(e.pointerType === 'mouse' && e.button === 2))) return;
-    if (e.pointerType === 'mouse' && firstPersonView() && CAN.requestPointerLock) {
-      try { const req = CAN.requestPointerLock(); if (req?.catch) req.catch(() => {}); } catch (_) {}
-      return;
-    }
+    if (!canAdjustCamera() || ORBIT.id !== null || e.button !== (e.pointerType === 'mouse' ? 2 : 0)) return;
     e.preventDefault();
     ORBIT.id = e.pointerId; ORBIT.x = e.clientX; ORBIT.y = e.clientY;
     ORBIT.sensitivity = e.pointerType === 'touch' ? .0045 : .003;
     CAN.setPointerCapture(e.pointerId);
   });
   CAN.addEventListener('pointermove', e => {
-    if (document.pointerLockElement === CAN) return;
-    if (e.pointerId !== ORBIT.id) return;
+      if (e.pointerId !== ORBIT.id) return;
     if (!canAdjustCamera()) { cancelCameraOrbit(); return; }
-    if (e.pointerType === 'mouse' && !e.buttons) { cancelCameraOrbit(e); return; }
+    if (e.pointerType === 'mouse' && !(e.buttons & 2)) { cancelCameraOrbit(e); return; }
     const dx = e.clientX - ORBIT.x, dy = e.clientY - ORBIT.y;
     if (!ORBIT.dragging && Math.hypot(dx, dy) < 5) return;
     e.preventDefault();
@@ -6025,12 +6004,6 @@ function setupCameraOrbit() {
     CAMS.yawT -= dx * ORBIT.sensitivity;
     CAMS.pitchT = clamp(CAMS.pitchT + dy * ORBIT.sensitivity * .55, CAM_PITCH_MIN, CAM_PITCH_MAX);
   });
-  document.addEventListener('mousemove', e => {
-    if (document.pointerLockElement !== CAN || !canAdjustCamera()) return;
-    CAMS.yawT -= e.movementX * .003;
-    CAMS.pitchT = clamp(CAMS.pitchT + e.movementY * .00165, CAM_PITCH_MIN, CAM_PITCH_MAX);
-  });
-  document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement === CAN) cancelCameraOrbit(); });
   for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) CAN.addEventListener(ev, cancelCameraOrbit);
 }
 // Q·R: 카메라를 90°씩 돌림 (이동 방향은 늘 화면 기준)
@@ -6061,7 +6034,6 @@ function updateCameraClearance(dt) {
 }
 function updateFollowCam(dt) {
   if (ORBIT.id !== null && !canAdjustCamera()) cancelCameraOrbit();
-  if (document.pointerLockElement === CAN && (!canAdjustCamera() || CAMS.distT > .18)) document.exitPointerLock();
   if (G.peek) {
     // 장치·유물 연출은 기존 구도로 보여 주고, 끝나면 사용자가 고른 각도로 돌아간다.
     CAM.pitch += ((FIRST_PERSON ? .8 : CAM_PITCH) - CAM.pitch) * damp(5, dt); CAMS.pitchV = 0;
@@ -6817,7 +6789,10 @@ function restoreExpState(es, quiet = false) {
   // 이미 지난 침수는 조용히 반영
   FLOOD_ZONES.forEach((z, i) => { const ft = tideTimeFor(z.h + CFG.DANGER); if (ft - CFG.WARN_AHEAD < G.time) G.warned[i] = true; if (ft < G.time) { G.flooded[i] = true; G.floodedAt[i] = -99; } });
   const num = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);   // 0도 올바른 좌표
-  placePlayer(num(es.x, PORT.spawnX), num(es.z, PORT.spawnZ), num(es.yaw, 0));
+  const savedX = num(es.x, PORT.spawnX), savedZ = num(es.z, PORT.spawnZ);
+  // 예전 부두 곁발판에 저장된 위치를 같은 길이의 중앙 부두로 옮긴다.
+  const oldPierSide = savedX >= -8.28 && savedX <= -5.54 && savedZ >= 48.68 && savedZ <= 52;
+  placePlayer(oldPierSide ? -4 : savedX, oldPierSide ? Math.min(savedZ, 51.6) : savedZ, num(es.yaw, 0));
   // 하루 기록과 체력 (구버전 저장에는 없으므로 기본값)
   G.expEarn = Math.max(0, num(es.earn ?? 0, 0)); G.expItems = Math.max(0, num(es.picked ?? 0, 0));
   G.haulKinds = cleanHaulKinds(es.haulKinds);
@@ -7737,8 +7712,8 @@ function guidePages() {
         <p class="gBrief">물이 빠진 길을 따라 보물을 찾아요.<br><b>처음에는 항구 가까운 해변부터.</b></p>
         <div class="gActions"><div>${key(move)}<span>이동</span></div><div>${key(touch ? '달리기 버튼' : keyName('run'))}<span>달리기</span></div></div>
         <details class="gDetail"><summary>조작 더 보기</summary><ul>
-          <li>${touch ? '화면 위 시점 버튼으로 1인칭과 3인칭을 바꿔요.' : '휠로 가까이 다가가면 자연스럽게 1인칭이 돼요. 1인칭에서 화면을 클릭하면 마우스로 둘러봐요. Esc로 커서를 풀어요.'}</li>
-          <li>${touch ? '빈 화면을 손가락으로 쓸어 시점을 돌려요.' : '빈 화면을 마우스로 드래그해 시점을 돌려요.'}</li>
+          <li>${touch ? '화면 위 시점 버튼으로 1인칭과 3인칭을 바꿔요.' : '휠로 가까이 다가가면 자연스럽게 1인칭이 돼요. 1인칭에서도 오른쪽 버튼을 누른 채 마우스를 움직여 둘러봐요. Esc로 커서를 풀어요.'}</li>
+          <li>${touch ? '빈 화면을 손가락으로 쓸어 시점을 돌려요.' : '오른쪽 마우스 버튼을 누른 채 드래그해 시점을 돌려요.'}</li>
           <li>항구를 나서면 물때가 흐르기 시작해요. 달리면 체력이 줄고, 쉬면 다시 차요.</li>
           <li>${touch ? '🗺 버튼' : key(keyName('map'))} 섬 지도 · ${touch ? '가방 칸 누르기' : key(keyName('bag'))} 가방 · ${touch ? '⏸ 버튼' : key('Esc')} 일시정지</li>
           <li>${touch ? '반짝이는 것에 다가가면 E 버튼에 지금 할 일이 떠요.' : `${key(keyName('rotL'))} ${key(keyName('rotR'))} 화면 90° 회전${FIRST_PERSON ? '' : ' · 마우스 휠로 확대·축소'}. 조작 키는 설정에서 바꿀 수 있어요.`}</li>
