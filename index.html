@@ -899,7 +899,7 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
 </div></div>
 
 <div id="portMenu" class="screen dim hidden" role="dialog" aria-modal="true" aria-labelledby="pmTitle"><div class="panel wide">
-  <div class="pmHead"><h2 id="pmTitle">⚓ 항구 사무소</h2><div id="pmGold"></div></div>
+  <div class="pmHead"><h2 id="pmTitle">⚓ 보물 판매</h2><div id="pmGold"></div></div>
   <div class="tabs" id="pmTabs" role="tablist"></div>
   <div id="pmBody"></div>
   <div id="pmFoot"></div>
@@ -1160,7 +1160,7 @@ const TUT = {
   tide: '물이 차오르기 시작했어요! 주황 줄무늬로 깜빡이는 곳은 30초 안에 잠기는 땅이에요.',
   shallow: '얕은 물에서는 느려져요. 물이 허리까지 차면 위험하니 바로 빠져나오세요.',
   ret: '귀환 여유가 줄고 있어요. 바닥의 빛 점을 따라가면 항구로 가는 가장 빠른 길이에요.',
-  port: '항구 사무소 창구에서 {act}를 눌러 보물을 정산하세요.',
+  port: '보물 판매 창구에서 {act}를 눌러 보물을 정산하세요.',
   full: '가방이 가득 찼어요. 보물 앞에서 {act}를 누르면 내려놓을 보물을 골라 바꿔 담을 수 있어요. {bag} 키나 가방 칸을 눌러 언제든 꺼내 놓을 수도 있어요.',
   deep: '위험한 수심이에요! 4초 안에 얕은 곳으로 나가지 않으면 구조대에 끌려 나가요. 구조되면 보물은 그대로지만 소지금의 절반을 구조비로 내요.',
   crab: '게가 보물을 물고 달아나요! 쫓아가서 몸이 닿으면 떨어뜨려요. 달리면 금방 따라잡지만, 몇 초 지나면 모래 속으로 숨어요.',
@@ -3919,8 +3919,8 @@ function glyphCanvas(kind, lit = false) {
 // 상호작용 시설: 각각 항구 메뉴의 다른 탭을 엶
 const BOARD = { x: 3.55, z: 29.35 };
 const FAC = {
-  counter: { x: -6.5, z: 36.6, tab: 'settle', name: '항구 사무소 창구', act: '정산하기', mk: [-7.45, 7.5, 36.6] },
-  workshop: { x: -1.2, z: 38.6, tab: 'upgrade', name: '공방 작업대', act: '업그레이드', mk: [-0.35, 7.4, 38.6] },
+  counter: { x: -6.5, z: 36.6, tab: 'settle', name: '보물 판매 창구', act: '정산하기', mk: [-7.45, 7.5, 36.6] },
+  workshop: { x: -1.2, z: 38.6, tab: 'upgrade', name: '업그레이드 & 상점', act: '업그레이드', mk: [-0.35, 7.4, 38.6] },
   board: { x: BOARD.x, z: BOARD.z + 1, tab: 'request', name: '의뢰 게시판', act: '의뢰 보기', mk: [BOARD.x, 8.7, BOARD.z] },
 };
 const PORT_Y = 5.5;
@@ -3939,7 +3939,7 @@ function house(cx, cz, w, d, h, o) {
         panel(cx + face, cz + dir * (opening + side) / 2, wallWidth, side, -0.4, h + 0.4);
       }
       panel(cx + face, cz, wallWidth, opening, -0.4, 1.45);
-      panel(cx + face, cz, wallWidth, opening, 2.45, h - 2.45);
+      panel(cx + face, cz, wallWidth, opening, h - 0.55, 0.55);
       blk('wood', cx, y - 0.18, cz, w - 0.46, 0.24, d - 0.46, 0x896848, { r: 0 });
     });
   } else {
@@ -3953,10 +3953,10 @@ function house(cx, cz, w, d, h, o) {
 function buildPort() {
   const Y = PORT_Y;
   // 항구 사무소: 동쪽 창구에서 정산
-  house(-10.6, 36.6, 5.4, 5.0, 3.0, { wall: C.plaster, roof: C.roof, rh: 2.0, counterOpening: 1 });
+  house(-10.6, 36.6, 5.4, 5.0, 3.42, { wall: C.plaster, roof: C.roof, rh: 2.0, counterOpening: 1 });
   blk('wood', -7.45, Y, 36.6, 0.9, 1.05, 2.6, C.woodL);
   colBox(-7.45, 36.6, 0.45, 1.3, 0, Y + 1.05);
-  for (let i = 0; i < 4; i++) blk('plain', -7.29, Y + 2.29, 35.64 + i * 0.64, 1.29, 0.085, 0.635, i % 2 ? C.cloth : C.red, { rz: -0.11, r: 0.018, grad: 0 });
+  for (let i = 0; i < 4; i++) blk('plain', -7.47, Y + 2.90, 35.64 + i * 0.64, 0.96, 0.085, 0.635, i % 2 ? C.cloth : C.red, { rz: -0.11, r: 0.018, grad: 0 });
   reserveModelColors(3);
   withOwnRng(366, () => {
     // 벽 바깥의 불투명한 청회색 유리와 창틀. 벽과 겹치는 면을 두지 않는다.
@@ -3970,13 +3970,13 @@ function buildPort() {
       face('wood', 0.095, 1.46, 0.84, 0.043, 0.025, 0x87664a);
     }
   });
-  const officeSign = signCanvas('항구 사무소', 320, 96);
-  addTexQuad(officeSign, 2.8, 0.84, -10.6, Y + 2.2, 39.15, 0);
-  addTexQuad(officeSign, 2.1, 0.40, -7.50, Y + 2.73, 36.6, Math.PI / 2);
+  const officeSign = signCanvas('보물 판매', 320, 96);
+  addTexQuad(officeSign, 2.8, 0.84, -10.6, Y + 2.59, 39.15, 0);
+  addTexQuad(officeSign, 2.1, 0.40, -7.18, Y + 3.26, 36.6, Math.PI / 2);
   withOwnRng(3662, () => {
     // 창구 둘레 나무틀과 안쪽 선반
-    for (const z of [35.3, 37.9]) blk('wood', -7.86, Y + 1.04, z, 0.22, 1.45, 0.13, C.woodD);
-    blk('wood', -7.82, Y + 2.39, 36.6, 0.25, 0.11, 2.72, C.woodD);
+    for (const z of [35.3, 37.9]) blk('wood', -7.86, Y + 1.04, z, 0.22, 1.87, 0.13, C.woodD);
+    blk('wood', -7.82, Y + 2.81, 36.6, 0.25, 0.11, 2.72, C.woodD);
     blk('wood', -7.67, Y + 1.02, 36.6, 0.55, 0.11, 2.76, C.woodL);
     for (const y of [Y + 1.16, Y + 2.03]) {
       blk('wood', -10.18, y, 36.6, 0.42, 0.09, 1.94, C.woodD);
@@ -3994,20 +3994,20 @@ function buildPort() {
   cyl('metal', -7.45, Y + 1.13, 37.3, 0.04, 0.04, 0.35, C.metal, { seg: 6 });
   blk('plain', -7.45, Y + 1.05, 36.0, 0.5, 0.06, 0.7, 0x7b3a2a, { r: 0.02 });
   // 공방: 서쪽 작업대에서 업그레이드
-  house(2.4, 38.6, 4.4, 4.2, 2.6, { key: 'wood', wall: C.woodL, roof: C.teal, rh: 1.6, counterOpening: -1 });
+  house(2.4, 38.6, 4.4, 4.2, 3.23, { key: 'wood', wall: C.woodL, roof: C.teal, rh: 1.6, counterOpening: -1 });
   blk('wood', -0.35, Y, 38.6, 0.9, 0.95, 2.2, C.wood);
   blk('metal', -0.35, Y + 0.95, 38.2, 0.55, 0.28, 0.32, C.metal, { r: 0.05 });
   cylinderBetween('wood', [-0.55, Y + 1.0, 39.16], [-0.14, Y + 1.0, 39.25], 0.045, 0.05, C.woodD, 8);
   colBox(-0.35, 38.6, 0.45, 1.1, 0, Y + 1.25);
-  addTexQuad(signCanvas('은비의 공방', 280, 96), 1.64, 0.56, 2.4, Y + 1.75, 40.76, 0);
+  addTexQuad(signCanvas('업그레이드 & 상점', 360, 96), 2.38, 0.52, 2.4, Y + 2.52, 40.76, 0);
   withOwnRng(3846, () => {
     // 지붕 끝, 작업대 쪽 간판, 나무 창틀
-    for (const x of [-0.35, 5.15]) blk('wood', x, Y + 2.42, 38.6, 0.13, 0.16, 5.45, C.woodD);
-    for (const z of [35.95, 41.25]) blk('wood', 2.4, Y + 2.42, z, 5.55, 0.16, 0.13, C.woodD);
-    addTexQuad(signCanvas('은비의 공방', 280, 96), 1.82, 0.38, -0.49, Y + 2.40, 38.6, -Math.PI / 2);
-    for (let i = 0; i < 4; i++) blk('plain', -0.36, Y + 2.10, 37.67 + i * 0.62, 1.03, 0.08, 0.615,
+    for (const x of [-0.35, 5.15]) blk('wood', x, Y + 3.05, 38.6, 0.13, 0.16, 5.45, C.woodD);
+    for (const z of [35.95, 41.25]) blk('wood', 2.4, Y + 3.05, z, 5.55, 0.16, 0.13, C.woodD);
+    addTexQuad(signCanvas('업그레이드 & 상점', 360, 96), 2.34, 0.42, -0.54, Y + 3.11, 38.6, -Math.PI / 2);
+    for (let i = 0; i < 4; i++) blk('plain', -0.26, Y + 2.72, 37.67 + i * 0.62, 0.86, 0.08, 0.615,
       i % 2 ? C.cloth : C.teal, { rz: 0.10, grad: 0, r: 0.015 });
-    for (const z of [37.29, 39.91]) blk('wood', 0.16, Y + 1.02, z, 0.21, 1.40, 0.12, C.woodD);
+    for (const z of [37.29, 39.91]) blk('wood', 0.16, Y + 1.02, z, 0.21, 1.73, 0.12, C.woodD);
     blk('wood', 0.09, Y + 1.0, 38.6, 0.34, 0.095, 2.7, C.woodL);
     const windowZ = 40.17;
     blk('wood', 0.145, Y + 1.12, windowZ, 0.18, 0.88, 0.72, C.woodD);
@@ -4117,8 +4117,8 @@ function buildPort() {
   reserveModelColors(3);   // 제거한 중앙 전등: 기둥·불빛·덮개
   lamp(-9.65, 27.75);
   // 항구 사람들: 항구지기 마 선장, 공방 장인 은비, 고양이 고등어
-  buildNPC('captain', '항구지기 마 선장', -8.63, 36.6, Math.PI / 2, { skin: 0xe8b98f, shirt: 0xf1ead8, coat: 0x2e4a6b, pants: 0x3b3a44, hat: 'cap', beard: true });
-  buildNPC('artisan', '공방 장인 은비', 0.95, 38.6, -Math.PI / 2, { skin: 0xf0c7a0, shirt: 0xd9e6e4, coat: null, apron: 0x8a5a36, pants: 0x4a5a6a, hat: 'band' });
+  buildNPC('captain', '항구지기 마 선장', -8.41, 36.6, Math.PI / 2, { skin: 0xe8b98f, shirt: 0xf1ead8, coat: 0x2e4a6b, pants: 0x3b3a44, hat: 'cap', beard: true });
+  buildNPC('artisan', '공방 장인 은비', 0.63, 38.6, -Math.PI / 2, { skin: 0xf0c7a0, shirt: 0xd9e6e4, coat: null, apron: 0x8a5a36, pants: 0x4a5a6a, hat: 'band' });
   buildCat(-7.2, 41.0, PORT_Y + 0.9);   // 부두 옆 나무 상자 위에서 볕을 쬠
   // 시설 상호작용
   for (const k in FAC) {
@@ -4441,7 +4441,8 @@ function npcFrame(dt, time) {
   for (const n of NPCS) {
     const d = Math.hypot(n.x - P.rx, n.z - P.rz);
     const want = d < 6 && G.mode !== 'title' ? Math.atan2(P.rx - n.x, P.rz - n.z) - (n.cat ? -Math.PI / 2 : 0) : n.ry0;
-    n.cur += angDiff(n.cur, want) * damp(n.cat ? 1.5 : 3, dt);
+    const face = n.cat ? want : n.ry0 + clamp(angDiff(n.ry0, want), -0.63, 0.63);
+    n.cur += angDiff(n.cur, face) * damp(n.cat ? 1.5 : 3, dt);
     const bob = n.cat ? Math.sin(time * 1.8) * 0.01 : Math.sin(time * 2.1 + n.x) * 0.012;
     M4.compose(n.dyn.m, n.x, n.y + bob, n.z, 0, n.cur, 0);
     if (n.el) {
@@ -5741,6 +5742,7 @@ function buildPlayer() {
   cyl('tmpPack', 0, 0.2, 0.02, 0.1, 0.1, 0.44, 0xb39264, { seg: 8, rz: Math.PI / 2 });
   PM.pack = dynFrom('tmpPack', { mat: 'actor' });
 }
+const PICKUP_DURATION = 0.74;
 const _pm = new Float32Array(16), _pl = new Float32Array(16), _upper = new Float32Array(16);
 function partM(out, root, x, y, z, rx, ry, rz, s = 1) {
   M4.compose(_pl, x, y, z, rx, ry, rz, s, s, s);
@@ -5764,23 +5766,23 @@ function updatePlayerModel(alpha, dt, time) {
   const sp = Math.hypot(P.vx, P.vz);
   const amp = smooth(0, CFG.WALK, sp) * lerp(0.76, 1.13, smooth(CFG.WALK, CFG.RUN, sp)) * (1 - P.swim * 0.6);
   const ch = P.cheer > 0 ? smooth(0, 0.3, P.cheer) * smooth(1.75, 1.45, P.cheer) : 0;
-  const t = P.pickup?.fly ?? 0;
-  const reach = smooth(0, 0.43, t) * (1 - smooth(0.43, 0.79, t));
-  const lift = smooth(0.43, 0.72, t) * (1 - smooth(0.82, 1, t));
+  const t = P.pickup ? Math.min(1, P.pickup.fly + dt / PICKUP_DURATION) : 0;
+  const reach = smooth(0.03, 0.37, t) * (1 - smooth(0.45, 0.76, t));
+  const lift = smooth(0.43, 0.66, t) * (1 - smooth(0.76, 1, t));
   const pick = smooth(0, 0.24, P.pick) * (1 - smooth(0.68, 1, P.pick)) * (1 - ch);
   const bob = Math.abs(Math.sin(P.phase)) * 0.035 * amp;
   const breathe = Math.sin(time * 2.2) * 0.006;
-  const hipDrop = Math.max(pick * 0.08, reach * 0.22);
+  const hipDrop = Math.max(pick * 0.08, reach * 0.27);
   M4.compose(_pm, P.rx, y + bob + breathe, P.rz, 0, P.yawV, 0);
-  const sw = Math.sin(P.phase) * 0.52 * amp * (1 - ch * 0.65) * (1 - pick * 0.55);
+  const sw = Math.sin(P.phase) * 0.52 * amp * (1 - ch * 0.65) * (1 - Math.max(pick, reach) * 0.55);
   const paddle = smooth(0.15, 0.65, P.swim) * Math.sin(time * 6) * 0.67;
   const wade = smooth(0.42, 0.78, depth) * (1 - P.swim) * (1 - ch);
   partM(PM.legL.m, _pm, 0.12, 0.8 - hipDrop, 0, sw - pick * 0.12, 0, 0);
   partM(PM.legR.m, _pm, -0.12, 0.8 - hipDrop, 0, -sw - pick * 0.12, 0, 0);
-  partM(_upper, _pm, 0, 0.78 - hipDrop, 0, Math.max(pick * 0.48, reach * 0.46) + amp * 0.07 - ch * 0.06, 0, 0);
+  partM(_upper, _pm, 0, 0.78 - hipDrop, 0, Math.max(pick * 0.48, reach * 0.49) + amp * 0.07 - ch * 0.06, lift * 0.17, -reach * 0.065);
   partM(PM.body.m, _upper, 0, -0.78, 0, 0, 0, 0);
-  partM(PM.armL.m, _upper, 0.232, 0.54, 0, -sw * 0.7 + paddle - 0.05 - wade * 0.48 - pick * 0.17 - ch * 1.05, 0, 0.08 + P.swim * 0.75 + wade * 0.32);
-  partM(PM.armR.m, _upper, -0.232, 0.54, 0, sw * 0.7 - paddle - 0.05 - wade * 0.48 - pick * 0.5 - reach * 0.55 - lift * 0.28 - ch * 0.57, 0, -0.08 - P.swim * 0.75 - wade * 0.32);
+  partM(PM.armL.m, _upper, 0.232, 0.54, 0, -sw * 0.7 + paddle - 0.05 - wade * 0.48 - pick * 0.17 + reach * 0.2 - lift * 0.24 - ch * 1.05, 0, 0.08 + P.swim * 0.75 + wade * 0.32);
+  partM(PM.armR.m, _upper, -0.232, 0.54, 0, sw * 0.7 - paddle - 0.05 - wade * 0.48 - pick * 0.5 - reach * 0.38 - lift * 0.52 - ch * 0.57, 0, -0.08 - P.swim * 0.75 - wade * 0.32);
   partM(PM.forearmL.m, PM.armL.m, 0, -0.275, 0, -0.12, 0, 0);
   partM(PM.forearmR.m, PM.armR.m, 0, -0.275, 0, -0.12 - lift * 1.45, lift * 0.3, 0);
   const fill = G.bag ? bagUsed() / Math.max(1, upVal('bag')) : 0;
@@ -6515,23 +6517,26 @@ function updateItems(dt, time) {
   for (const it of G.items) {
     const c = TREASURES[it.type];
     if (it.fly > 0) {
-      it.fly += dt / (it.handPickup ? 0.62 : 0.38);
+      it.fly += dt / (it.handPickup ? PICKUP_DURATION : 0.38);
       const k = Math.min(1, it.fly);
       let x = lerp(it.x, P.rx, k), z = lerp(it.z, P.rz, k), y = lerp(it.y + 0.35, P.ry + 1.2, k) + Math.sin(k * Math.PI) * 0.9;
-      let s = 1 - k * 0.8;
+      let s = 1 - k * 0.8, yaw = time * 9, pitch = 0;
       if (it === P.pickup) {
         const hand = xform(PM.forearmR.m, 0, -0.31, 0.10);
         const pack = xform(PM.pack.m, 0, 0.08, 0);
-        const grab = smooth(0.23, 0.43, k), stow = smooth(0.72, 1, k);
+        const grab = smooth(0.30, 0.45, k), stow = smooth(0.73, 0.99, k);
+        const held = smooth(0.45, 0.68, k);
+        yaw = it.pickYaw + angDiff(it.pickYaw, P.yawV + 0.45) * held;
+        pitch = -0.2 * held;
         x = lerp(lerp(it.x, hand[0], grab), pack[0], stow);
-        y = lerp(lerp(it.y + 0.18, hand[1], grab), pack[1], stow);
+        y = lerp(lerp(it.pickY, hand[1], grab), pack[1], stow);
         z = lerp(lerp(it.z, hand[2], grab), pack[2], stow);
         s = lerp(1, 0.12, stow);
       }
-      M4.compose(it.dyn.m, x, y, z, 0, time * 9, 0, s, s, s);
+      M4.compose(it.dyn.m, x, y, z, pitch, yaw, 0, s, s, s);
       it.glow.x = x; it.glow.y = y + 0.2; it.glow.z = z; it.glow.a = 0.8 * (1 - k);
       if (it.beam) it.beam.a *= 0.8;
-      if (k >= 1) { if (it === P.pickup) P.pickup = null; removeDyn(it.dyn); it.dyn = null; removeGlow(it.glow); removeGlow(it.beam); it.fly = -1; }
+      if (k >= 1) { if (it === P.pickup) { P.pickup = null; if (!firstPersonView() && G.mode === 'play') hudBagPop(); } removeDyn(it.dyn); it.dyn = null; removeGlow(it.glow); removeGlow(it.beam); it.fly = -1; }
       continue;
     }
     if (!it.alive) continue;
@@ -6539,11 +6544,11 @@ function updateItems(dt, time) {
     const bob = Math.sin(time * 2 + it.ph) * 0.06;
     const lift = depth > 0 ? 0.05 : 0.18;
     M4.compose(it.dyn.m, it.x, it.y + lift + bob, it.z, 0, time * 0.8 + it.ph, 0);
-    it.glow.a = depth > CFG.DANGER ? 0.12 : depth > 0 ? 0.45 : 0.75;
+    it.glow.a = G.mode === 'title' ? 0 : depth > CFG.DANGER ? 0.12 : depth > 0 ? 0.45 : 0.75;
     it.glow.y = it.y + 0.95 + bob;
     const rare = !!TREASURES[it.type].rare;
-    if (it.beam) it.beam.a = depth > CFG.DANGER ? 0 : (rare ? 0.5 : it.type === 'chalice' ? 0.42 : 0.26) * (0.8 + 0.2 * Math.sin(time * (rare ? 3.1 : 1.7) + it.ph));
-    if (!REDUCED && depth < 0.6 && Math.random() < dt * (rare ? 4 : it.type === 'chalice' ? 3 : 1.6)) fxSparkle(it.x, it.y + 0.6, it.z, rare ? it.glow.col : [1, 0.92, 0.6], 1, 0.6);
+    if (it.beam) it.beam.a = G.mode === 'title' || depth > CFG.DANGER ? 0 : (rare ? 0.5 : it.type === 'chalice' ? 0.42 : 0.26) * (0.8 + 0.2 * Math.sin(time * (rare ? 3.1 : 1.7) + it.ph));
+    if (G.mode !== 'title' && !REDUCED && depth < 0.6 && Math.random() < dt * (rare ? 4 : it.type === 'chalice' ? 3 : 1.6)) fxSparkle(it.x, it.y + 0.6, it.z, rare ? it.glow.col : [1, 0.92, 0.6], 1, 0.6);
     if (!it.seen && Math.hypot(it.x - P.x, it.z - P.z) < 21) {
       it.seen = true;
       // 귀한 보물을 처음 발견하면 반짝이는 소리와 함께 알려 줌
@@ -6603,6 +6608,8 @@ function pickupItem(it, fromDig = false) {
   if (fromDig) P.pick = 1;
   else {
     it.handPickup = true;
+    it.pickYaw = R.time * 0.8 + it.ph;
+    it.pickY = it.dyn.m[13];
     P.pickup = it;
     const dx = it.x - P.x, dz = it.z - P.z;
     if (Math.hypot(dx, dz) > 0.05) P.yaw = Math.atan2(dx, dz);
@@ -8531,7 +8538,7 @@ function useCoastMark(m) {
   if (m.id === 'cargo') {
     if (bagUsed() >= upVal('bag')) { toast('유리 유물에는 가방 1칸이 필요해요.', 'info', 3); return; }
     c.cargo = 'intact'; c.cargoDay = SAVE.stats.exp; renderBag(true);
-    toast('🏺 항구 사무소에서 유물을 정산하세요. 깊은 물은 피하세요!', 'info', 4);
+    toast('🏺 보물 판매 창구에서 유물을 정산하세요. 깊은 물은 피하세요!', 'info', 4);
   } else if (m.id === 'cache') {
     c.cache = true; addGold(240); toast('🗝 숨은 보물 발견 · +240 G', 'good', 4);
   } else {
@@ -8740,7 +8747,7 @@ function updateCoastMarker() {
   if(!el.hidden){setText(el,m.name);el.style.left=p.x+'px';el.style.top=p.y+'px';}
 }
 const PORT_WINDOWS = {
-  settle:'⚓ 항구 사무소',upgrade:'🛠 공방',shop:'🛠 공방',request:'📌 의뢰 게시판',
+  settle:'⚓ 보물 판매',upgrade:'🛠 업그레이드 & 상점',shop:'🛠 업그레이드 & 상점',request:'📌 의뢰 게시판',
   dex:'🏛 항구 전시실',hall:'🏛 항구 전시실',light:'🗼 낡은 등대',record:'📖 오래된 항구 기록',coastbox:'🧰 해변 보관함',
 };
 function facilityTabs(tab) {
@@ -8793,7 +8800,7 @@ function renderPort() {
   if (PM_TAB === 'coastbox') {
     h = coastBoxCard();
   } else if (CH.on && ['upgrade', 'shop', 'request', 'hall', 'dex', 'light'].includes(PM_TAB)) {
-    h = `<div class="reqcard empty"><b>🏝 오늘의 섬 도전 중</b><p>도전에서는 장비와 항구 시설을 이용할 수 없어요. 항구 사무소에서 보물을 팔아 기록을 올리세요.</p></div>`;
+    h = `<div class="reqcard empty"><b>🏝 오늘의 섬 도전 중</b><p>도전에서는 장비와 항구 시설을 이용할 수 없어요. 보물 판매 창구에서 보물을 팔아 기록을 올리세요.</p></div>`;
   } else if (PM_TAB === 'settle') {
     if (PM_SOLD) {
       const S = PM_SOLD;
@@ -9472,9 +9479,9 @@ function titleCam(dt) {
   CAM.yaw = Math.sin(t * 0.035) * 0.42;
   CAM.pitch = 0.66;
   CAM.tx = 5 + Math.sin(t * 0.03) * 4; CAM.tz = 6 + Math.cos(t * 0.025) * 3; CAM.ty = 0;
-  CAM.dist = 146;
+  CAM.dist = 164;
   // 넓은 화면에서는 섬을 오른쪽에 두어 왼쪽의 제목과 겹치지 않게 함
-  const asp = R.W / R.H, off = asp > 1.25 ? Math.min(24, (asp - 1.0) * 26) : 0;
+  const asp = R.W / R.H, off = asp > 1.25 ? Math.min(21, (asp - 1.0) * 23) : 0;
   CAM.tx -= Math.cos(CAM.yaw) * off; CAM.tz += Math.sin(CAM.yaw) * off;
 }
 function envUpdate() {
@@ -9950,7 +9957,7 @@ function setupTouch() {
   // 터치 화면에 맞춘 안내 문구
   TUT.move = '왼쪽 원을 끌어 움직이고, 달리기 버튼을 켜면 달려요. 달리면 체력이 줄어요.';
   TUT.first = '반짝이는 것이 보물이에요. 가까이 가서 E 버튼을 눌러 주우세요.';
-  TUT.port = '항구 사무소 창구에서 E 버튼을 눌러 보물을 정산하세요.';
+  TUT.port = '보물 판매 창구에서 E 버튼을 눌러 보물을 정산하세요.';
   TUT.map = '오른쪽 위 🗺 버튼이나 미니맵을 누르면 섬 지도가 열려요. 지도를 보는 동안에는 시간이 멈춰요.';
   TUT.shop = TUT.shop.replace('{help} 키로', '오른쪽 위 ❓ 버튼으로');
   document.querySelector('#bagPanel .row.small span').textContent = '달리기 체력';
