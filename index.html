@@ -153,7 +153,6 @@ body.cine #hint,body.endshow #hint,body.cine #stamFloat{visibility:hidden}
 #title .titleMenu .btn:not(.primary){min-height:44px;justify-self:start;padding:6px 6px;border-radius:6px;background:transparent;color:#e1edeb;box-shadow:none;text-shadow:0 2px 8px #061b24;font-size:14px;font-weight:500}
 #title .titleMenu .btn:not(.primary):hover{background:rgba(226,244,245,.13);color:#fff;transform:none}
 #title:not(.hasSave) .titleMenu{grid-template-columns:auto auto 1fr}
-.buildNote{margin:10px 0 0;font-size:11px;opacity:.6;text-align:right}
 .menu{display:flex;flex-direction:column;gap:10px;width:260px;max-width:100%;margin:0 auto}
 .menu.row2{flex-direction:row;width:auto;justify-content:center}
 .btn{pointer-events:auto;cursor:pointer;font:inherit;font-weight:700;font-size:16px;padding:12px 18px;border-radius:12px;border:none;background:#fff8e8;color:var(--ink);box-shadow:0 3px 0 #c9b98f;transition:transform .08s,filter .1s}
@@ -198,6 +197,12 @@ label.chk{justify-content:flex-start}
 #keyMsg.ok{color:#2d6a3e}
 #keyMsg.ok:not(:empty){background:#e4f3ea;border-color:#b9d9bf}
 #settings .panel{max-height:calc((100vh - 32px) / var(--ui));overflow:auto}
+#btnKeysReset{color:#a53b32;margin-top:9px}
+@media (min-width:800px){
+  #settings>.panel.wide{width:min(860px,calc((100vw - 48px) / var(--ui)));padding:26px 30px}
+  .settingsGrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px}
+  .settingsGrid .keysec:first-child{margin-top:7px}
+}
 .pmHead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 #pmGold{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
 #pmTabs[hidden]{display:none}
@@ -719,8 +724,8 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
     <div class="card" id="goldBox">💰 0 G</div>
     <div class="card" id="relicBox"><i>◇◇◇</i> <span>유물 0/3</span></div>
     <div class="ibtns">
-      <button class="iconbtn" id="btnMap" title="섬 지도 (Tab)" aria-label="섬 지도">🗺</button>
-      <button class="iconbtn" id="btnMute" title="음소거 (M)" aria-label="음소거">🔊</button>
+      <button class="iconbtn" id="btnMap" title="섬 지도 (M)" aria-label="섬 지도">🗺</button>
+      <button class="iconbtn" id="btnMute" title="음소거" aria-label="음소거">🔊</button>
       <button class="iconbtn" id="btnHelp" title="플레이 방법 (H)" aria-label="플레이 방법">❓</button>
       <button class="iconbtn" id="btnPause" title="일시정지 (Esc)" aria-label="일시정지">⏸</button>
     </div>
@@ -816,7 +821,7 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
     </div>
   </div>
   </div>
-  <div id="minimapWrap" class="card" title="눌러서 큰 지도 보기 (Tab)"><canvas id="minimap" width="166" height="166"></canvas><span class="mmhint">🗺 Tab</span></div>
+  <div id="minimapWrap" class="card" title="눌러서 큰 지도 보기 (M)"><canvas id="minimap" width="166" height="166"></canvas><span class="mmhint">🗺 M</span></div>
   <div id="bagPanel" class="card">
     <div class="row"><b>🎒 가방</b><span id="bagLabel">0 / 8칸</span></div>
     <div id="bagSlots"></div>
@@ -869,7 +874,8 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
   <p class="note">탐험 시간이 멈췄어요.</p>
 </div></div>
 
-<div id="settings" class="screen dim hidden"><div class="panel narrow"><h2>설정</h2>
+<div id="settings" class="screen dim hidden"><div class="panel wide"><h2>설정</h2>
+  <div class="settingsGrid"><div>
   <label class="set" for="volMaster">전체 음량<input type="range" id="volMaster" min="0" max="1" step="0.05"></label>
   <label class="set" for="volMusic">음악<input type="range" id="volMusic" min="0" max="1" step="0.05"></label>
   <label class="set" for="volSfx">효과음·환경음<input type="range" id="volSfx" min="0" max="1" step="0.05"></label>
@@ -879,17 +885,18 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
   <label class="set" for="selUi">글자·화면 정보 크기<select id="selUi"><option value="0.9">작게</option><option value="1">보통</option><option value="1.15">크게</option><option value="1.3">아주 크게</option></select></label>
   <label class="set" for="rngMm">미니맵 크기<input type="range" id="rngMm" min="110" max="520" step="10"></label>
   <label class="set chk" for="chkShake"><input type="checkbox" id="chkShake"> 화면 흔들림</label>
+  </div><div class="keysec">
   <h3 class="keysec">조작 키 바꾸기</h3>
   <p class="note keysec" style="margin:0 0 8px">버튼을 누른 뒤 원하는 키를 누르세요. 방향키와 오른쪽 Shift는 늘 함께 동작해서 다른 행동에는 지정할 수 없어요.</p>
   <div id="keyList" class="keylist keysec"></div>
+  <button class="btn dark small keysec" id="btnKeysReset">키 기본값으로</button>
   <p id="keyMsg" class="keysec" role="status" aria-live="polite"></p>
+  </div></div>
   <h3>저장 데이터</h3>
   <p class="note" style="margin:0 0 8px">다른 브라우저로 옮기거나 백업해 둘 수 있어요. 불러오면 지금 진행 상황이 그 저장으로 바뀌어요.</p>
   <div class="saveio"><button class="btn dark small" id="btnExportFile">파일로 내보내기</button><button class="btn dark small" id="btnExportText">문자열로 복사</button><button class="btn dark small" id="btnImportFile">파일에서 불러오기</button><button class="btn dark small" id="btnImportText">문자열 붙여넣기</button></div>
-  <div class="saveio"><button class="btn dark small" id="btnExportOldView" hidden>이전 1인칭 저장 내보내기</button></div>
   <input type="file" id="importFile" accept=".json,application/json,text/plain" hidden>
-  <div class="menu row2" style="margin-top:14px"><button class="btn dark small keysec" id="btnKeysReset">키 기본값으로</button><button class="btn dark small" id="btnMmReset">미니맵 기본 크기</button><button class="btn primary" id="btnSettingsClose">닫기</button></div>
-  <p class="buildNote" id="buildNote"></p>
+  <div class="menu row2" style="margin-top:14px"><button class="btn primary" id="btnSettingsClose">닫기</button></div>
 </div></div>
 <div id="saveIO" class="screen dim hidden"><div class="panel narrow"><h2 id="sioTitle">저장 데이터</h2>
   <p id="sioNote" class="note" style="margin:0 0 8px"></p>
@@ -906,7 +913,7 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
 </div></div>
 
 <div id="mapView" class="screen dim hidden"><div class="panel mapPanel">
-  <div class="mapHead"><h2>🗺 섬 지도</h2><span class="mapPaused">⏸ 지도를 보는 동안 시간이 멈춰요</span><button class="btn small" id="btnMapClose">닫기 (Tab)</button>
+  <div class="mapHead"><h2>🗺 섬 지도</h2><span class="mapPaused">⏸ 지도를 보는 동안 시간이 멈춰요</span><button class="btn small" id="btnMapClose">닫기 (M)</button>
     <div class="mapToggles" role="group" aria-label="지도에 표시할 것"><span>표시</span><button class="mtog" data-layer="relic" aria-pressed="true">◆ 유물</button><button class="mtog" data-layer="item" aria-pressed="true">● 발견한 보물</button><button class="mtog" data-layer="route" aria-pressed="true">┅ 귀환 경로</button></div></div>
   <div class="mapBody"><div class="mapCanvasWrap"><canvas id="bigmap" width="560" height="560" aria-label="섬 전체 지도"></canvas></div><div class="mapSide" id="mapSide"></div></div>
 </div></div>
@@ -1540,8 +1547,7 @@ function saveSettings() { try { localStorage.setItem(SET_KEY, JSON.stringify(SET
 // 조작 키: 첫 번째 키는 설정에서 바꿀 수 있고, 방향키·오른쪽 Shift는 늘 함께 동작
 const KEY_ACTIONS = [
   ['up', '위로 이동', ['KeyW', 'ArrowUp']], ['down', '아래로 이동', ['KeyS', 'ArrowDown']], ['left', '왼쪽으로 이동', ['KeyA', 'ArrowLeft']], ['right', '오른쪽으로 이동', ['KeyD', 'ArrowRight']],
-  ['run', '달리기', ['ShiftLeft', 'ShiftRight']], ['act', '줍기·조사·이용', ['KeyE']], ['bag', '가방 열기', ['KeyQ']], ['map', '섬 지도', ['Tab']],
-  ['mute', '소리 켜고 끄기', ['KeyM']],
+  ['run', '달리기', ['ShiftLeft', 'ShiftRight']], ['act', '줍기·조사·이용', ['KeyE']], ['bag', '가방 열기', ['KeyQ']], ['map', '섬 지도', ['KeyM']],
   ['help', '플레이 방법 보기', ['KeyH']],
 ];
 const KEY_DEF = Object.fromEntries(KEY_ACTIONS.map(a => [a[0], a[2]]));
@@ -7365,7 +7371,7 @@ function award(id, quiet = false) {
 function achCount() { return ACH.reduce((n, a) => n + (SAVE.ach[a.id] ? 1 : 0), 0); }
 
 /* =========================================================
-   19-1. 발견한 지역과 큰 섬 지도 (Tab)
+   19-1. 발견한 지역과 큰 섬 지도 (M)
    ========================================================= */
 // 발견한 지역: 미니맵과 같은 범위를 2m 칸으로 나눔. 저장할 때는 비트를 base64로 묶음
 const EXP = { x0: -49, z0: -57, size: 114, N: 57, bits: null, land: null, landN: 0, landSeen: 0 };
@@ -9044,10 +9050,8 @@ function exportText() {
   if (G.mode !== 'title' && G.mode !== 'boot') saveProgress();   // 진행 중이면 최신 상태부터 담음
   return JSON.stringify({ format: SAVE_FORMAT, version: SAVE_FORMAT_VER, exportedAt: new Date().toISOString(), save: CH.on ? CH.main : SAVE });   // 도전 중에도 본 게임 진행을 내보냄
 }
-function exportFile(legacy = false) {
-  const raw = legacy ? legacyFirstSave() : null;
-  if (legacy && !raw) return;
-  const txt = legacy ? JSON.stringify({ format: SAVE_FORMAT, version: SAVE_FORMAT_VER, save: raw }) : exportText(), d = new Date(), pad = n => String(n).padStart(2, '0');
+function exportFile() {
+  const txt = exportText(), d = new Date(), pad = n => String(n).padStart(2, '0');
   const name = `sinking-island-save-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
   try {
     const url = URL.createObjectURL(new Blob([txt], { type: 'application/json' }));
@@ -9055,7 +9059,7 @@ function exportFile(legacy = false) {
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
     notice(`💾 ${name} 파일로 내보냈어요. 내려받기가 막힌 환경이면 '문자열로 복사'를 쓰세요.`, 'ok', 6);
-  } catch (e) { if (legacy) notice('이전 저장 파일을 내려받지 못했어요.', 'warn', 5); else openSaveIO('export'); }
+  } catch (e) { openSaveIO('export'); }
 }
 // 저장 데이터 검사 (불러오기용, 엄격): ① 전체를 읽은 문자열 ② 크기 제한 ③ 새 객체로 파싱 ④ 위험한 키·HTML·깊이·칸 수 검사
 // ⑤ 허용된 칸만 새 객체로 복사하며 모든 값 검증 → 하나라도 틀리면 적용하지 않음 (진행 중 탐험 상태만 깨졌으면 그 부분만 뺌)
@@ -9159,7 +9163,6 @@ function importFromFile(file) {
   fr.readAsText(file);
 }
 function openSettings() {
-  $('btnExportOldView').hidden = !legacyFirstSave();
   $('keyMsg').textContent = '';
   $('volMaster').value = SET.master; $('volMusic').value = SET.music; $('volSfx').value = SET.sfx;
   $('chkMute').checked = SET.mute; $('selShadow').value = SET.shadow; $('selRes').value = SET.res;
@@ -9237,7 +9240,7 @@ function applyKeyLabels() {
   const k = keyName;
   const run = document.querySelector('#bagPanel .row.small span'); if (run && !TOUCH.dev) run.textContent = `달리기 체력 (${k('run')})`;
   $('imark').firstChild.textContent = TOUCH.dev ? 'E' : k('act');
-  if (!TOUCH.dev) { $('btnMapClose').textContent = `닫기 (${k('map')})`; $('minimapWrap').querySelector('.mmhint').textContent = `🗺 ${k('map')}`; $('btnMap').title = `섬 지도 (${k('map')})`; $('btnHelp').title = `플레이 방법 (${k('help')})`; $('bagPanel').title = `가방 열기 (${k('bag')})`; }
+  if (!TOUCH.dev) { $('btnMapClose').textContent = `닫기 (${k('map')})`; $('minimapWrap').querySelector('.mmhint').textContent = `🗺 ${k('map')}`; $('btnMap').title = `섬 지도 (${k('map')})`; $('minimapWrap').title = `눌러서 큰 지도 보기 (${k('map')})`; $('btnHelp').title = `플레이 방법 (${k('help')})`; $('bagPanel').title = `가방 열기 (${k('bag')})`; }
 }
 function pauseGame() {
   if (G.mode !== 'play') return;
@@ -9288,8 +9291,6 @@ const tick = () => new Promise(r => setTimeout(r, 0));
 const BUILD_ID = 'Sinking Island build 2026-11-continuous-orbit';
 async function boot() {
   const say = t => { $('loadText').textContent = t; };
-  console.info(BUILD_ID);
-  $('buildNote').textContent = BUILD_ID;
   loadSettings();
   initGL();
   resizeGL();
@@ -9592,7 +9593,7 @@ function resumeFromBackground() {
   LAST = performance.now(); ACC = 0;
   if (staleAgainst(storedMeta()) && G.mode !== 'title' && G.mode !== 'boot') enterReadOnly();
 }
-const ONCE_ACTIONS = ['act', 'bag', 'map', 'mute', 'help'];
+const ONCE_ACTIONS = ['act', 'bag', 'map', 'help'];
 function releaseKeys() { for (const k in KEYS) KEYS[k] = false; cancelCameraOrbit(); }
 let INPUT_AT = 0;   // 마지막 키·포인터 입력 시각 (긴 멈춤 뒤 키를 놓을지 판단)
 function bindUI() {
@@ -9630,7 +9631,7 @@ function bindUI() {
       else if (e.code === 'Tab') { e.preventDefault(); cycleFocus(e.shiftKey ? -1 : 1); }
       return;
     }
-    // 섬 지도: Tab (메뉴가 열려 있지 않을 때만)
+    // 메뉴에서 Tab으로 포커스를 옮기고, 플레이 중에는 설정된 지도 키로 지도를 연다.
     if (REBIND.on) { e.preventDefault(); finishRebind(e.code); return; }
     if (e.code === 'Tab') {
       e.preventDefault();
@@ -9646,8 +9647,7 @@ function bindUI() {
     else if (keyIs('act', e.code)) {
       if (!$('reader').classList.contains('hidden')) closeReader();
       else if (G.mode === 'play') interact();
-    } else if (keyIs('mute', e.code)) setMute(!SET.mute);
-    else if (keyIs('help', e.code)) openHelp();
+    } else if (keyIs('help', e.code)) openHelp();
   });
   window.addEventListener('keyup', e => {
     KEYS[e.code] = false;
@@ -9750,13 +9750,11 @@ function bindUI() {
   $('selUi').onchange = e => { SET.ui = +e.target.value; applyUiScale(); saveSettings(); if (SET.mm != null) scheduleMinimapCanvas(); };
   $('rngMm').oninput = e => setMinimapSize(+e.target.value, false);
   $('rngMm').onchange = e => setMinimapSize(+e.target.value);
-  $('btnMmReset').onclick = () => { SND.click(); setMinimapSize(null); };
   $('chkShake').onchange = e => { SET.shake = e.target.checked; saveSettings(); };
-  $('btnKeysReset').onclick = () => { SET.keys = {}; saveSettings(); SND.click(); renderKeyList(); applyKeyLabels(); const el = $('keyMsg'); el.textContent = '조작 키를 기본값으로 되돌렸어요'; el.classList.add('ok'); };
+  $('btnKeysReset').onclick = () => { REBIND.on = false; SET.keys = {}; saveSettings(); SND.click(); renderKeyList(); applyKeyLabels(); const el = $('keyMsg'); el.textContent = '조작 키를 기본값으로 되돌렸어요'; el.classList.add('ok'); };
   $('btnSettingsClose').onclick = () => { SND.click(); closeSettings(); };
   $('btnGpuReload').onclick = () => { saveProgress(); location.reload(); };
   // 저장 데이터 내보내기·불러오기
-  $('btnExportOldView').onclick = () => exportFile(true);
   $('btnExportFile').onclick = () => { SND.click(); exportFile(); };
   $('btnExportText').onclick = () => { SND.click(); openSaveIO('export'); };
   $('btnImportText').onclick = () => { SND.click(); openSaveIO('import'); };
