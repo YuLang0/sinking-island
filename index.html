@@ -375,6 +375,13 @@ body.cine #bubbles{visibility:hidden}
 .mapToggles>span{opacity:.7;margin-right:2px}
 .mtog{font:inherit;font-weight:700;font-size:13px;padding:4px 10px;border-radius:999px;border:1.5px solid #2e5560;background:#2e5560;color:#fff;cursor:pointer}
 .mtog[aria-pressed="false"]{background:transparent;color:#2e5560;opacity:.6;text-decoration:line-through}
+#bigmap{cursor:crosshair}
+#bigmap:focus-visible{outline:3px solid #7547ac;outline-offset:-4px}
+.mapPinTools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;font-size:12px;color:#494162}
+#btnMapPinClear{margin:0;min-height:34px;padding:5px 9px;font-size:12px}
+#compassPinMarker{position:absolute;transform:translate(-50%,-50%);color:#f2c3ff;font:bold 15px/1 sans-serif;text-shadow:0 1px 4px #0b192b}
+#compassPinDistance{position:absolute;top:100%;right:0;min-width:100%;border-radius:10px;padding:3px 6px;background:#14253e;color:#f4d5ff;text-align:center;white-space:nowrap;font-size:11px;font-weight:700}
+#hudCompass:has(#compassPinDistance:not([hidden])) .compassLegend{visibility:hidden}
 .mapBody{display:flex;gap:16px;align-items:flex-start}
 .mapCanvasWrap{flex:none;width:min(560px,calc(100vh - 140px),calc(100vw - 360px));aspect-ratio:1;border-radius:12px;overflow:hidden;border:3px solid #d8c7a0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);background:#e8dbbc}
 #bigmap{display:block;width:100%;height:100%}
@@ -969,6 +976,7 @@ button.bvchoice:hover {border-color:#6c958a}
       <span id="compassS" class="compassDir" style="left:50%;top:74%" aria-hidden="true">S</span>
       <span id="compassW" class="compassDir" style="left:26%;top:50%" aria-hidden="true">W</span>
       <span class="compassLegend" aria-hidden="true">얼굴이 바라보는 쪽</span>
+      <span id="compassPinMarker" aria-hidden="true" hidden>◆</span><span id="compassPinDistance" aria-hidden="true" hidden></span>
     </div>
   </div>
   </div>
@@ -1066,7 +1074,8 @@ button.bvchoice:hover {border-color:#6c958a}
 <div id="mapView" class="screen dim hidden"><div class="panel mapPanel">
   <div class="mapHead"><h2>🗺 섬 지도</h2><span class="mapPaused">⏸ 지도를 보는 동안 시간이 멈춰요</span><button class="btn small" id="btnMapClose">닫기 (M)</button>
     <div class="mapToggles" role="group" aria-label="지도에 표시할 것"><span>표시</span><button class="mtog" data-layer="relic" aria-pressed="true">◆ 유물</button><button class="mtog" data-layer="item" aria-pressed="true">● 발견한 보물</button><button class="mtog" data-layer="route" aria-pressed="true">┅ 귀환 경로</button></div></div>
-  <div class="mapBody"><div class="mapCanvasWrap"><canvas id="bigmap" width="560" height="560" aria-label="섬 전체 지도"></canvas></div><div class="mapSide" id="mapSide"></div></div>
+  <div class="mapPinTools"><span id="mapPinStatus" role="status">지도를 누르면 목적지 핀을 찍어요.</span><button type="button" class="btn small" id="btnMapPinClear" hidden>핀 지우기</button></div>
+  <div class="mapBody"><div class="mapCanvasWrap"><canvas id="bigmap" width="560" height="560" tabindex="0" aria-label="섬 전체 지도. 방향키로 핀 위치 이동, 엔터로 핀 찍기"></canvas></div><div class="mapSide" id="mapSide"></div></div>
 </div></div>
 
 <div id="bagView" class="screen dim hidden"><div class="panel narrow bagpanel">
@@ -1074,7 +1083,7 @@ button.bvchoice:hover {border-color:#6c958a}
   <div id="bvBody"></div>
   <div class="bvfoot">
     <dl class="bvsummary hidden" id="bvSummary" aria-live="polite" aria-atomic="true">
-      <div><dt>확보한 공간</dt><dd id="bvFreed"></dd></div>
+      <div><dt id="bvSpaceLabel">확보한 공간</dt><dd id="bvFreed"></dd></div>
       <div><dt>교환 차액</dt><dd id="bvDelta"></dd></div>
     </dl>
     <div class="menu row2"><button class="btn dark" id="bvClose">닫기 (Q)</button><button class="btn primary hidden" id="bvOk">내려놓고 담기</button></div>
@@ -1391,6 +1400,7 @@ function legacyFirstSave() {
   } catch { return null; }
 }
 const SET_KEY = 'sinking-island-settings-v1';
+const MAP_BOUNDS = { x0: -49, z0: -57, size: 114 };
 function newGid() { return (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)).slice(0, 16); }
 function defaultSave() {
   return {
@@ -1401,6 +1411,7 @@ function defaultSave() {
     tut: {}, explored: '', req: null, reqSeen: false, reqDone: 0, lastReqType: '', dex: {}, ach: {}, streak: 0,
     stats: { exp: 0, earned: 0, rescues: 0, best: 0, items: 0, chalice: 0 },
     hall: {}, hallPension: {}, hallSeen: false, light: 0, lightStarted: false, night: false,
+    mapPin: null, voyage: 0, caveTreasure: false, specialHall: {},
   };
 }
 let SAVE = defaultSave();
@@ -1522,6 +1533,27 @@ function cleanSave(raw, strict) {
   out.light = num(raw.light, 0, LIGHT_STAGES.length, 0, '등대 복원 단계가 올바르지 않아요');
   out.lightStarted = out.ended && (out.light > 0 || bool(raw.lightStarted, false, '등대 시작 표시가 올바르지 않아요'));
   out.night = bool(raw.night, false, '밤 썰물 선택이 올바르지 않아요');
+  if (raw.mapPin != null) {
+    const pin = raw.mapPin, {x0,z0,size} = MAP_BOUNDS;
+    if (isObj(pin) && isNum(pin.x) && isNum(pin.z) && pin.x >= x0 && pin.x <= x0+size && pin.z >= z0 && pin.z <= z0+size) {
+      out.mapPin = { x: pin.x, z: pin.z };
+    } else bad('지도 핀 좌표가 올바르지 않아요');
+  }
+  out.voyage = num(raw.voyage, 0, VOYAGE_PAGES.length, 0, '마지막 항해 기록 단계가 올바르지 않아요');
+  out.caveTreasure = bool(raw.caveTreasure, false, '동굴 보물 기록이 올바르지 않아요');
+  if (out.caveTreasure && (!out.ended || out.light < LIGHT_STAGES.length)) {
+    bad('동굴 보물과 등대 진행 상태가 서로 맞지 않아요');
+    out.caveTreasure = false;
+  }
+  if (raw.specialHall !== undefined) {
+    if (!isObj(raw.specialHall)) bad('특별 전시 정보가 올바르지 않아요');
+    else for (const id of Object.keys(raw.specialHall)) {
+      if (!SPECIAL_EXHIBITS.some(exhibit => exhibit.id === id)) { bad('알 수 없는 특별 전시품이 있어요'); continue; }
+      if (!bool(raw.specialHall[id], false, '특별 전시 정보가 올바르지 않아요')) continue;
+      if (hasSpecialExhibit(id, out)) out.specialHall[id] = true;
+      else bad('아직 발견하지 않은 특별 전시품이 있어요');
+    }
+  }
   if (raw.shop != null) {
     const q = raw.shop;
     if (isObj(q) && Number.isInteger(q.exp) && q.exp >= 0 && q.exp <= SAVE_LIM.expMax && Object.keys(q).every(k => k === 'exp' || SHOP_ITEMS.some(i => i.id === k))) {
@@ -4373,6 +4405,73 @@ function lateWorld() {
   buildNav(HALL.x - 3, HALL.x + 3, HALL.z - 2.5, HALL.z + 2.5);   // 전시실 자리의 길찾기 칸만 다시 계산
   buildNav(ARCHIVE.x - 2, ARCHIVE.x + 2, ARCHIVE.z - 2, ARCHIVE.z + 2);
 }
+const SPECIAL_EXHIBITS = [
+  { id: 'cave', name: '월광 나침반', desc: '등대의 빛이 비춘 밤 동굴에서 발견한 나침반.', color: 0x9adeef },
+  { id: 'voyage', name: '선장의 항로패', desc: '난파선 선원의 마지막 항해 끝에서 발견한 항로패.', color: 0xd4ab60 },
+];
+const SPECIAL_MESH = {};
+const SPECIAL_DISPLAY = {};
+function hasSpecialExhibit(id, save = SAVE) {
+  return id === 'cave' ? save.caveTreasure : id === 'voyage' && save.voyage >= VOYAGE_PAGES.length;
+}
+function specialExhibitMesh(id) {
+  if (SPECIAL_MESH[id]) return SPECIAL_MESH[id];
+  const key = 'tmpExhibit' + id;
+  if (id === 'cave') {
+    cyl(key,0,0,0,.30,.34,.11,0x558994,{seg:16,grad:.05});
+    cyl(key,0,.10,0,.25,.26,.03,0xa9ebff,{seg:16,grad:0});
+    blk(key,0,.13,0,.065,.023,.38,0x1c5564,{r:.02,ry:.6,grad:0});
+    ball(key,0,.18,-.08,.08,0xd2faff,{sub:1,flat:.5,grad:0});
+  } else {
+    blk(key,0,0,0,.49,.09,.39,0x916236,{r:.045,grad:.1});
+    blk(key,0,.09,0,.39,.03,.29,0xe7ba60,{r:.03,grad:0});
+    for (const z of [-.10,.10]) ball(key,0,.14,z,.04,0x335e5e,{sub:1,grad:0});
+    blk(key,0,.12,0,.045,.02,.16,0x335e5e,{r:.01,ry:-.75,grad:0});
+  }
+  return SPECIAL_MESH[id] = makeMesh(takeGeo(key));
+}
+function buildSpecialDisplays(Y) {
+  SPECIAL_EXHIBITS.forEach((item,i) => {
+    const x = HALL.x + (i ? 1.32 : -1.32), z = HALL.z + .88, y = Y + 1.18;
+    cyl('tmpHall',x,Y+.13,z,.13,.17,1.01,0x506d73,{seg:10,grad:.15});
+    cyl('tmpHall',x,Y+1.14,z,.23,.23,.04,0xe4c777,{seg:12,grad:0});
+    const model = addDyn(specialExhibitMesh(item.id),{mat:'actor',cast:false});
+    const glow = addGlow(x,y+.22,z,1.15,item.color,0,{shape:1,pulse:.2});
+    model.vis = false;
+    SPECIAL_DISPLAY[item.id] = {model,glow,x,y,z};
+  });
+  WORLD.anim.push((dt,t) => {
+    for (const {model,x,y,z} of Object.values(SPECIAL_DISPLAY)) if (model.vis) {
+      M4.compose(model.m,x,y+.12+.04*Math.sin(t*1.8),z,0,t*.7,0);
+    }
+  });
+}
+function syncSpecialDisplays(open) {
+  for (const {id} of SPECIAL_EXHIBITS) {
+    const {model,glow,x,y,z} = SPECIAL_DISPLAY[id];
+    model.vis = open && !CH.on && !!SAVE.specialHall[id];
+    glow.a = model.vis ? .55 : 0;
+    if (model.vis) M4.compose(model.m,x,y+.12,z,0,0,0);
+  }
+}
+function displaySpecialExhibit(id) {
+  const exhibit = SPECIAL_EXHIBITS.find(item => item.id === id);
+  if (!exhibit || CH.on || SAVE_IO.readonly || !hallOpen() || !hasSpecialExhibit(id) || SAVE.specialHall[id]) return false;
+  SAVE.specialHall[id] = true;
+  syncSpecialDisplays(true);
+  requestSave(); SND.achieve();
+  toast(`🏛 ${josa(exhibit.name,'을/를')} 전시했어요`,'good',3);
+  return true;
+}
+function specialExhibitCards() {
+  if (CH.on || !SPECIAL_EXHIBITS.some(item => hasSpecialExhibit(item.id))) return '';
+  const rows = SPECIAL_EXHIBITS.filter(item => hasSpecialExhibit(item.id)).map(item => {
+    const displayed = SAVE.specialHall[item.id];
+    return `<div class="up hallslot${displayed ? ' owned' : ''}"><h4><span class="gem" style="--c:${hexCss(item.color)}"></span> ${item.name}</h4>
+      <p class="ds">${item.desc}</p>${displayed ? '<button class="btn small" disabled>전시 중 ✓</button>' : `<button class="btn small primary" data-exhibit="${item.id}">전시하기</button>`}</div>`;
+  });
+  return '<h3>특별 전시</h3><div class="ups shop">' + rows.join('') + '</div>';
+}
 const HALL_SLOTS = [...BASE_TYPES, ...RARE_TYPES];
 const HALL_PARTS = { built: null, sign: null, collision: null, items: {}, glows: {} };
 // 앞(+z, 광장·카메라 쪽) 줄에 보물 다섯, 뒷줄에 조금 더 높은 받침의 희귀 변종 다섯
@@ -4395,6 +4494,7 @@ function buildHall(Y) {
   for (const sx of [-1, 1]) cyl('tmpHall', x + sx * 1.75, Y + 0.12, z - 0.92, 0.11, 0.13, 2.3, C.woodD, { seg: 8 });
   blk('tmpHall', x, Y + 2.3, z - 0.92, 3.8, 0.2, 0.24, C.wood, { r: 0.04 });
   for (const sx of [-1, 1]) cyl('tmpHall', x + sx * 1.75, Y + 0.12, z + 0.95, 0.09, 0.11, 0.8, C.woodD, { seg: 8 });
+  buildSpecialDisplays(Y);
   HALL_PARTS.built = dynFrom('tmpHall', { mat: 'plain' });
   HALL_PARTS.sign = plaque('항구 전시실', x, Y + 2.7, z - 0.78, 0, 0.95);
   HALL_PARTS.y = Y;
@@ -4441,6 +4541,7 @@ function syncHall() {
   hallItems();
   const open = hallOpen();
   HALL_PARTS.built.vis = open; HALL_PARTS.sign.vis = open;
+  syncSpecialDisplays(open);
   if (HALL_PARTS.collision && HALL_PARTS.collision.on !== open) {
     HALL_PARTS.collision.on = open;
     buildNav(HALL.x - 3, HALL.x + 3, HALL.z - 2.5, HALL.z + 2.5);
@@ -4506,9 +4607,16 @@ function buildLighthouseParts(Y, LX, LZ, scale) {
     if (LIGHT_PARTS.lens.vis) M4.compose(LIGHT_PARTS.lens.m, LX, Y + 7.25 * scale, LZ, 0, ang, 0, scale, scale, scale);
     const on = L >= LIGHT_STAGES.length && G.mode !== 'title';
     const k = on ? (G.night ? 1 : 0.35 + 0.4 * (WORLD.beacon ? WORLD.beacon.a : 0)) : 0;
+    const reflection = caveBeamStrength(ang);
+    updateCaveLight(reflection);
     for (const b of LIGHT_PARTS.beams) {
       const a = ang + b.s * Math.PI, d = (1.4 + b.i * 1.9) * scale;
       b.g.x = LX + Math.cos(a) * d; b.g.z = LZ - Math.sin(a) * d; b.g.y = Y + 7.25 * scale - b.i * 0.18;
+      if (reflection > 0) {
+        const dx = NIGHT_CAVE.markX-LX, dz = NIGHT_CAVE.markZ-LZ;
+        const along = (dx*Math.cos(a)-dz*Math.sin(a));
+        if (along > 0) b.g.y = lerp(b.g.y,lerp(LIGHT_PARTS.y,NIGHT_CAVE.markY,clamp(d/Math.hypot(dx,dz),0,1)),reflection);
+      }
       b.g.a = k * (0.55 - b.i * 0.07);
     }
   });
@@ -4517,6 +4625,106 @@ function syncLighthouse() {
   const L = SAVE.light | 0;
   LIGHT_PARTS.scaf.vis = L >= 1 && L < LIGHT_STAGES.length;
   LIGHT_PARTS.lens.vis = L >= 3;
+}
+/* 등대 아래의 밤 썰물 동굴 */
+const NIGHT_CAVE = { x: -27.6, z: 47.0, ry: 3*Math.PI/4, walls: [] };
+function cavePoint(u,v) {
+  const {x,z,ry} = NIGHT_CAVE, c = Math.cos(ry), s = Math.sin(ry);
+  return [x + u*c + v*s, z - u*s + v*c];
+}
+function insideNightCave() {
+  const {x,z,ry} = NIGHT_CAVE, dx = P.x-x, dz = P.z-z, c = Math.cos(ry), s = Math.sin(ry);
+  const u = dx*c - dz*s, v = dx*s + dz*c;
+  return Math.abs(u) <= 1.2 && v >= -.35 && v <= 4.1;
+}
+function nightCaveOpen() {
+  return !CH.on && SAVE.ended && lightDone() && G.night && !G.dayDone && U_LEVEL.v < NIGHT_CAVE.flood;
+}
+function syncNightCave() {
+  const c = NIGHT_CAVE;
+  if (!c.gateCol) return;
+  const main = !CH.on, closed = main && !(nightCaveOpen() || insideNightCave());
+  const changed = c.gateCol.on !== closed || c.walls[0].on !== main;
+  for (const wall of c.walls) wall.on = main;
+  c.body.vis = main;
+  c.gate.vis = c.gateCol.on = closed;
+  if (changed) buildNav(c.x-4,c.x+6,c.z-6,c.z+4);
+}
+function caveBeamStrength(beamAngle) {
+  const c = NIGHT_CAVE;
+  if (!c.mark || !nightCaveOpen() || G.mode === 'title') return 0;
+  const heading = Math.atan2(LIGHT_PARTS.z-c.markZ,c.markX-LIGHT_PARTS.x);
+  return smooth(.972,.998,Math.abs(Math.cos(beamAngle-heading)));
+}
+function updateCaveLight(strength) {
+  const c = NIGHT_CAVE;
+  if (!c.mark) return;
+  c.mark.vis = strength > .35;
+  c.markGlow.a = strength * .95;
+}
+function takeCaveExhibit() {
+  if (!nightCaveOpen() || SAVE.caveTreasure || SAVE_IO.readonly) return;
+  SAVE.caveTreasure = true;
+  requestSave(); SND.achieve();
+  toast('월광 나침반 발견 · 항구 전시실에서 전시할 수 있어요','good',4);
+  openReader('월광 나침반','등대 불빛을 오래 받아 푸르게 빛나는 나침반이다. 뒷면에는 “불빛이 돌아오는 곳이 우리의 항구”라고 새겨져 있다.');
+}
+function buildNightCave() {
+  const c = NIGHT_CAVE, bodyKey = 'tmpNightCave', roofKey = 'tmpNightCaveRoof', gateKey = 'tmpNightCaveGate';
+  const floor = groundAt(c.x,c.z), top = floor + 2.9, bottom = -1.6;
+  c.flood = floor + .52;
+  const stone = 0x626e74, seam = 0x45565b;
+  const box = (key,u,v,y,w,h,d,color,r=.12) => {
+    const [x,z] = cavePoint(u,v);
+    blk(key,x,y,z,w,h,d,color,{ry:c.ry,r,grad:.28});
+  };
+  const wall = (u,v,w,d) => {
+    const [x,z] = cavePoint(u,v);
+    c.walls.push(colBox(x,z,w/2,d/2,c.ry,top+.8));
+    box(bodyKey,u,v,bottom,w,top-bottom,d,stone,.23);
+  };
+  wall(-1.65,2.02,1.06,4.52);
+  wall(1.65,2.02,1.06,4.52);
+  wall(0,4.16,3.31,.60);
+  box(roofKey,0,2.0,top-.57,4.2,.78,4.5,seam,.22);
+  for (const [u,v,r,sy,sz] of [[-1.25,.52,.82,.52,1.1],[.37,1.32,1.02,.44,1.35],[1.27,2.7,.9,.65,1.31],[-.56,3.4,.93,.41,1.06]]) {
+    const [x,z] = cavePoint(u,v);
+    ball(roofKey,x,top+.06,z,r,stone,{sub:2,bump:.26,seed:391+Math.round(v*100),sy,sz,ry:c.ry});
+  }
+  c.body = dynFrom(bodyKey,{mat:'plain'});
+  c.roof = dynFrom(roofKey,{mat:'plain'});
+  box(gateKey,0,.05,bottom,2.35,top-bottom-.35,.51,stone,.17);
+  c.gate = dynFrom(gateKey,{mat:'plain'});
+  const [gx,gz] = cavePoint(0,.05);
+  c.gateCol = colBox(gx,gz,1.175,.25,c.ry,top);
+  c.gateCol.on = false;
+  const [mx,mz] = cavePoint(1.42,-.30), my = top-.95;
+  const art = document.createElement('canvas'); art.width = 128; art.height = 96;
+  const g = art.getContext('2d');
+  g.strokeStyle = '#bdffff'; g.lineWidth = 7; g.lineCap = 'round'; g.lineJoin = 'round';
+  for (const y of [26,52]) {
+    g.beginPath(); g.moveTo(33,y); g.lineTo(62,y+19); g.lineTo(92,y); g.stroke();
+  }
+  c.mark = addTexQuad(art,.97,.72,mx,my,mz,c.ry+Math.PI,{emit:true}); c.mark.vis = false;
+  c.markX = mx; c.markZ = mz; c.markY = my;
+  c.markGlow = addGlow(mx,my,mz,2.1,0x9ff3ff,0,{shape:1});
+  const [x,z] = cavePoint(0,2.9), y = groundAt(x,z);
+  const model = addDyn(specialExhibitMesh('cave'),{mat:'actor',cast:false});
+  model.vis = false;
+  const glow = addGlow(x,y+.6,z,1.75,0x9ff3ff,0,{shape:1,pulse:.24});
+  const visible = () => nightCaveOpen() && !SAVE.caveTreasure;
+  WORLD.anim.push((dt,t) => {
+    c.roof.vis = !CH.on && (G.mode === 'title' || firstPersonView() || !insideNightCave());
+    model.vis = G.mode !== 'title' && visible();
+    glow.a = model.vis ? .72 : 0;
+    if (model.vis) M4.compose(model.m,x,y+.42+.06*Math.sin(t*2),z,0,t*.7,0);
+  });
+  addInter({x,z,y,r:1.35,dy:.95,name:'월광 나침반',act:'챙기기',prio:2,
+    mk:[x,y+1.0,z],on:visible,use:takeCaveExhibit});
+  const [fx,fz] = cavePoint(0,-.8);
+  addInter({x:fx,z:fz,y:groundAt(fx,fz),r:1.55,name:'해안 바위 틈',act:'살피기',prio:1,
+    on:()=>!CH.on && SAVE.ended && lightDone() && !nightCaveOpen(),can:()=>G.night ? '물이 차서 들어갈 수 없어요. 다음 밤 썰물에 다시 오세요.' : '물이 빠지는 밤에 틈새가 열려요.'});
+  WORLD.sync.push(syncNightCave);
 }
 function buyLightStage() {
   const L = SAVE.light | 0;
@@ -4556,6 +4764,7 @@ function setNightPref(on) {
       for (const it of dropped) spawnItem(it.type, it.x, it.z, null, { seen: it.seen, dropped: true });
       applyShopEffects();
     }
+    syncNightCave();
     toast(G.night ? '🌙 오늘은 밤 썰물로 나가요 — 어둡지만 보물이 빛나고, 희귀 변종이 세 배 자주 나와요' : '☀ 오늘은 낮 썰물로 나가요', 'info', 3.6);
   } else toast(SAVE.night ? '🌙 다음 탐험부터 밤 썰물로 나가요' : '☀ 다음 탐험부터 낮 썰물로 나가요', 'info', 3);
   requestSave();
@@ -6283,8 +6492,9 @@ function updateFollowCam(dt) {
     CAM.tx += (P.rx + (CAMS.lx + fx * up) * (1 - near) - CAM.tx) * damp(lerp(8, 24, near), dt);
     CAM.tz += (P.rz + (CAMS.lz + fz * up) * (1 - near) - CAM.tz) * damp(lerp(8, 24, near), dt);
     CAM.ty += (Math.max(P.ry + lerp(.9, 1.62, near), U_LEVEL.v + lerp(.65, .25, near)) - CAM.ty) * damp(lerp(6, 24, near), dt);
-    CAM.dist += (CAMS.distT * zoom - CAM.dist) * damp(12, dt);
-    if (Math.abs(CAM.dist - CAMS.distT * zoom) < .0001) CAM.dist = CAMS.distT * zoom;
+    const viewDistance = !CH.on && insideNightCave() ? Math.min(8.5, CAMS.distT * zoom) : CAMS.distT * zoom;
+    CAM.dist += (viewDistance - CAM.dist) * damp(12, dt);
+    if (Math.abs(CAM.dist - viewDistance) < .0001) CAM.dist = viewDistance;
   }
   if (CAMS.shake > 0 && !REDUCED && SET.shake !== false) {
     CAMS.shake = Math.max(0, CAMS.shake - dt);
@@ -6902,6 +7112,7 @@ function startExpedition(atSpawn = true) {
   G.timers = []; G.peek = null; G.guide = null; G.guideA = 0; G.alertLvl = 0;
   FX.foot.length = 0; FX.parts.length = 0;
   if (atSpawn) placePlayer(PORT.spawnX, PORT.spawnZ, Math.PI);
+  syncNightCave();
   resetTablets();
   spawnTreasures();
   spawnSpots(); G.dig = null; applyShopEffects();
@@ -7023,6 +7234,7 @@ function restoreExpState(es, quiet = false) {
   // 예전 부두 곁발판에 저장된 위치를 같은 길이의 중앙 부두로 옮긴다.
   const oldPierSide = savedX >= -8.28 && savedX <= -5.54 && savedZ >= 48.68 && savedZ <= 52;
   placePlayer(oldPierSide ? -4 : savedX, oldPierSide ? Math.min(savedZ, 51.6) : savedZ, num(es.yaw, 0));
+  syncNightCave();
   // 하루 기록과 체력 (구버전 저장에는 없으므로 기본값)
   G.expEarn = Math.max(0, num(es.earn ?? 0, 0)); G.expItems = Math.max(0, num(es.picked ?? 0, 0));
   G.haulKinds = cleanHaulKinds(es.haulKinds);
@@ -7053,6 +7265,7 @@ function stepGame(dt) {
   if (G.clock && !G.cine && !G.freeze) G.time += dt;
   U_LEVEL.v = tideLevel(G.time);
   syncCoastBridges();
+  syncNightCave();
   tickCoast();
   R.future = tideLevel(G.time + CFG.WARN_AHEAD);
   R.warn = G.clock && G.time > 8 && G.time < CFG.T ? 1 : 0;
@@ -7300,11 +7513,64 @@ function rescue(reason) {
 }
 
 /* ---------- 섬의 장치와 유물 ---------- */
+const VOYAGE_PAGES = [
+  { title: '1. 선원이 남긴 첫 장', text: '안개가 밀려오기 전에 내 항로를 남겨 둔다. 숲 골짜기 북쪽 끝의 큰 고목을 찾아라. 그루터기 서쪽, 천으로 묶은 통 안에 다음 장을 넣어 두었다.' },
+  { title: '2. 고목 아래의 장', text: '배는 돌아오지 못했지만, 우리가 찾은 길은 남겨 두고 싶다. 서쪽 능선길을 따라 항구 쪽으로 내려가다 보면 길이 남쪽으로 굽는다. 굽이 바깥 바다 쪽의 돌 세 개 아래, 선장의 항로패를 숨겨 두었다.' },
+  { title: '3. 마지막 항해', text: '길을 잃을까 두려워하던 우리는 끝까지 불빛 하나를 따라왔다. 항로패를 항구에 가져가 다음 선원들이 우리가 찾은 길을 기억하게 해 다오.' },
+];
+const VOYAGE_MARKS = [
+  { page: 1, x: -10.3, z: -5, name: '천으로 묶은 통', act: '일지 읽기' },
+  { page: 2, x: -34.2, z: 16.8, name: '능선의 돌무더기', act: '돌 아래 살피기' },
+];
+function voyageCard() {
+  const pages = VOYAGE_PAGES.slice(0,SAVE.voyage);
+  return `<h3>선원의 마지막 항해 <small class="sub2">${pages.length}/${VOYAGE_PAGES.length}</small></h3>
+    <div class="stat storylog">${pages.length ? pages.map(page => `<details><summary>${page.title}</summary><p>${page.text}</p></details>`).join('') : '<p>동쪽 난파선의 항해일지에서 첫 단서를 찾아보세요.</p>'}
+    ${pages.length === VOYAGE_PAGES.length ? '<p>선장의 항로패를 찾았어요. 항구 전시실에서 전시할 수 있어요.</p>' : ''}</div>`;
+}
+function voyageMarkVisible(mark) { return !CH.on && !G.dayDone && SAVE.voyage === mark.page; }
+function inspectVoyageMark(mark) {
+  if (!voyageMarkVisible(mark) || SAVE_IO.readonly) return;
+  SAVE.voyage++;
+  requestSave();
+  const page = VOYAGE_PAGES[mark.page];
+  openReader('선원의 마지막 항해 · ' + page.title, page.text);
+  if (SAVE.voyage === VOYAGE_PAGES.length) {
+    SND.achieve();
+    toast('선장의 항로패 발견 · 항구 전시실에서 전시할 수 있어요','good',4);
+  }
+}
+function buildVoyageMarks() {
+  for (const mark of VOYAGE_MARKS) {
+    const {x,z,page,name,act} = mark, y = groundAt(x,z), key = 'tmpVoyage' + page;
+    if (page === 1) {
+      cyl(key,x,y-.08,z,.25,.30,.62,0x6f5037,{seg:10});
+      cyl(key,x,y+.44,z,.29,.29,.11,0x456e69,{seg:10});
+      blk(key,x,y+.55,z,.31,.04,.21,0xd3c4a1,{r:.025,ry:.35});
+    } else {
+      for (const [dx,dz,r] of [[-.28,.1,.33],[.26,.15,.27],[.07,-.23,.31]]) {
+        ball(key,x+dx,y+.16,z+dz,r,0x777f6d,{sub:1,seed:927,bump:.29,flat:.66});
+      }
+      blk(key,x,y+.1,z,.33,.10,.22,0xa47a4b,{ry:.33,r:.03});
+    }
+    const model = dynFrom(key,{mat:'plain'}), glow = addGlow(x,y+.65,z,1.25,0xffdf93,0,{shape:1,pulse:.25});
+    WORLD.anim.push(() => {
+      model.vis = !CH.on;
+      glow.a = G.mode !== 'title' && voyageMarkVisible(mark) ? .6 : 0;
+    });
+    addInter({x,z,y,r:1.5,dy:1.1,name,act,prio:2,mk:[x,y+1.15,z],on:()=>voyageMarkVisible(mark),use:()=>inspectVoyageMark(mark)});
+  }
+}
 function readLog() {
   const first = !SAVE.clue;
-  SAVE.clue = true; requestSave();
+  SAVE.clue = true;
+  const foundPage = !CH.on && !SAVE_IO.readonly && SAVE.voyage === 0;
+  if (foundPage) SAVE.voyage = 1;
+  requestSave();
   if (RP.logGlow) RP.logGlow.a = 0.0;
-  openReader('항해일지 — 마지막 장', LOG_TEXT);
+  const firstPage = !CH.on ? '\n\n선원의 마지막 항해 · ' + VOYAGE_PAGES[0].title + '\n' + VOYAGE_PAGES[0].text : '';
+  openReader('난파선 항해일지', LOG_TEXT + firstPage);
+  if (foundPage) toast('선원의 첫 장을 찾았어요 · 항구 기록대에서 다시 볼 수 있어요','good',3.8);
   if (first) toast('📜 유적의 단서를 얻었어요 · 항구 메뉴의 기록 탭에서 다시 볼 수 있어요', 'good', 3.6);
   updateObjective(true);
 }
@@ -7710,6 +7976,77 @@ const MAP_LABELS = [
   { t: '산호 암초', x: 48.6, z: 41.0 },
   { t: '갈매기 바위', x: 59.5, z: -1.8 },
 ];
+let mapCursor = null;
+function mapPointAt(fx, fz) {
+  const {x0,z0,size} = MAP_BOUNDS;
+  return { x: x0 + clamp(fx, 0, 1) * size, z: z0 + clamp(fz, 0, 1) * size };
+}
+function pinDistance(pin) { return Math.hypot(pin.x - P.x, pin.z - P.z); }
+function renderMapPin() {
+  const pin = SAVE.mapPin;
+  setText($('mapPinStatus'), pin ? `목적지까지 ${Math.round(pinDistance(pin))} m · 지도를 누르면 이동` : '지도를 누르면 목적지 핀을 찍어요.');
+  $('btnMapPinClear').hidden = !pin;
+}
+function setMapPin(pin) {
+  SAVE.mapPin = pin;
+  mapCursor = null;
+  requestSave();
+  renderMapPin(); drawBigMap(); drawMinimap(); updateCompassPin();
+  SND.click();
+}
+function bindMapPin() {
+  const map = $('bigmap');
+  map.addEventListener('click', e => {
+    if (G.mode !== 'map' || e.detail === 0) return;
+    const r = map.getBoundingClientRect();
+    if (r.width && r.height) setMapPin(mapPointAt((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height));
+  });
+  map.addEventListener('keydown', e => {
+    if (G.mode !== 'map') return;
+    const step = { ArrowLeft: [-1,0], ArrowRight: [1,0], ArrowUp: [0,-1], ArrowDown: [0,1] }[e.code];
+    if (!step && e.code !== 'Enter' && e.code !== 'Space') return;
+    e.preventDefault(); e.stopPropagation();
+    const p = mapCursor || SAVE.mapPin || P;
+    const {x0,z0,size} = MAP_BOUNDS;
+    const x = p.x + (step ? step[0] * 2 : 0), z = p.z + (step ? step[1] * 2 : 0);
+    const point = mapPointAt((x-x0)/size, (z-z0)/size);
+    if (!step) { setMapPin(point); return; }
+    mapCursor = point;
+    drawBigMap();
+  });
+  map.addEventListener('blur', () => {
+    if (!mapCursor || G.mode !== 'map') return;
+    mapCursor = null; drawBigMap();
+  });
+  $('btnMapPinClear').onclick = () => { setMapPin(null); map.focus(); };
+}
+function drawMapPin(c, project, u) {
+  if (!SAVE.mapPin) return;
+  const [x,y] = project(SAVE.mapPin.x, SAVE.mapPin.z);
+  c.save(); c.translate(x,y); c.scale(u,u);
+  c.beginPath(); c.moveTo(0,1); c.lineTo(-5,-6); c.arc(0,-9,6,2.62,6.8); c.closePath();
+  c.fillStyle = '#7840b0'; c.fill(); c.lineWidth = 2; c.strokeStyle = '#fff4ff'; c.stroke();
+  c.beginPath(); c.arc(0,-9,1.8,0,TAU); c.fillStyle = '#fff4ff'; c.fill();
+  c.restore();
+}
+function updateCompassPin() {
+  const pin = SAVE.mapPin, marker = $('compassPinMarker'), dist = $('compassPinDistance'), compass = $('hudCompass');
+  if (dist.hidden !== !pin) dist.hidden = !pin;
+  if (pin) {
+    const d = Math.round(pinDistance(pin));
+    const angle = Math.atan2(pin.x-P.x, P.z-pin.z) + CAM.yaw;
+    setStyle(marker,'left',(50 + 42*Math.sin(angle)).toFixed(1)+'%');
+    setStyle(marker,'top',(50 - 42*Math.cos(angle)).toFixed(1)+'%');
+    if (marker.hidden !== (d <= 1)) marker.hidden = d <= 1;
+    setText(dist, d <= 1 ? '목적지 도착' : `목적지 ${d} m`);
+  } else if (!marker.hidden) marker.hidden = true;
+  const label = compass._baseLabel ??= compass.getAttribute('aria-label');
+  const description = pin ? label + ' ' + dist.textContent : label;
+  if (compass._pinLabel !== description) {
+    compass._pinLabel = description;
+    compass.setAttribute('aria-label', description);
+  }
+}
 function drawBigMap() {
   const cv = $('bigmap');
   const rect = cv.getBoundingClientRect();
@@ -7854,6 +8191,13 @@ function drawBigMap() {
   c.beginPath(); c.moveTo(0, -6); c.lineTo(4.5, 4.5); c.lineTo(0, 2.4); c.lineTo(-4.5, 4.5); c.closePath(); c.fill(); c.stroke();
   c.restore();
   label('나', px, pz + 19 * u, { size: 11, col: '#a22a1e' });
+  drawMapPin(c, bmP, u);
+  if (mapCursor) {
+    const [x,y] = bmP(mapCursor.x, mapCursor.z);
+    c.save(); c.strokeStyle = '#fff4ff'; c.lineWidth = 2 * u;
+    c.beginPath(); c.arc(x,y,9*u,0,TAU); c.stroke();
+    c.strokeStyle = '#7840b0'; c.beginPath(); c.arc(x,y,7*u,0,TAU); c.stroke(); c.restore();
+  }
   // 방위와 축척
   const nx = D - 30 * u, ny = 34 * u;
   c.beginPath(); c.moveTo(nx, ny - 16 * u); c.lineTo(nx + 7 * u, ny + 4 * u); c.lineTo(nx, ny); c.lineTo(nx - 7 * u, ny + 4 * u); c.closePath();
@@ -7918,15 +8262,17 @@ function openMap() {
   for (const k in KEYS) KEYS[k] = false;
   $('mapView').classList.remove('hidden');
   updateReturn();
-  renderMapSide();
+  mapCursor = null;
+  renderMapSide(); renderMapPin();
   drawBigMap();
   if (!SAVE.tut.map) { SAVE.tut.map = 1; requestSave(); }
   SND.page();
 }
 function closeMap() {
   if (G.mode !== 'map') return;
-  $('mapView').classList.add('hidden');
   G.mode = 'play';
+  mapCursor = null;
+  $('mapView').classList.add('hidden');
   SND.page();
   CAN.focus();
 }
@@ -8215,7 +8561,7 @@ function updateCompass() {
 }
 // 매 프레임 HUD (글자는 0.1초마다)
 function hudUpdate(dt) {
-  updateCompass();
+  updateCompass(); updateCompassPin();
   const aiming = firstPersonView() && canAdjustCamera();
   $('fpReticle').hidden = !aiming;
   CAN.classList.toggle('fp-aim', aiming);
@@ -8404,7 +8750,7 @@ function updateObjective(force) {
   }
 }
 // 미니맵
-const MM = { x0: -49, z0: -57, size: 114, base: null, hs: null, img: null, N: 166, shown: null, rt: 0 };
+const MM = { ...MAP_BOUNDS, base: null, hs: null, img: null, N: 166, shown: null, rt: 0 };
 function buildMinimap() {
   const N = MM.N, cv = $('minimap'), g = cv.getContext('2d');
   MM.img = g.createImageData(N, N); MM.key = null;
@@ -8487,6 +8833,7 @@ function drawMinimap() {
   if (key !== MM.key || !MM.off) { MM.key = key; minimapBase(lvl, fut); }
   g.drawImage(MM.off, 0, 0);
   minimapMarks(g);
+  drawMapPin(g, mmP, 0.85);
 }
 function minimapBase(lvl, fut) {
   const N = MM.N, d = MM.img.data, b = MM.base;
@@ -9115,6 +9462,7 @@ function renderPort() {
       h = `<div class="feebox ok">🏛 전시 <b>${hallCount()}/10</b> · 다음 날 지급 <b>+${HALL_SLOTS.filter(t => hallDays(t) > 0).length * HALL_DAILY} G</b></div>
         <h3>보물</h3><div class="ups shop">${BASE_TYPES.map(slot).join('')}</div>
         <h3>✨ 희귀 변종</h3><div class="ups shop">${RARE_TYPES.map(slot).join('')}</div>
+        ${specialExhibitCards()}
         <p class="note">전시품 하나당 하루 10 G씩 최대 10일. 탐험을 마쳐 다음 날로 넘어갈 때 자동 지급돼요. 종류마다 하나만 전시할 수 있고, 다시 꺼낼 수 없어요.</p>`;
     }
   } else if (PM_TAB === 'light') {
@@ -9130,7 +9478,7 @@ function renderPort() {
         return `<div class="up${done ? ' owned' : ''}" id="light_${i}"><h4>${i + 1}. ${q.name}</h4><p class="ds">${q.desc}</p><div class="price">${q.cost} G</div>${btn}</div>`;
       }).join('') + '</div>';
       if (lightDone()) h += `<h3>🌙 밤 썰물</h3><div class="nightpick"><button class="btn ${!SAVE.night ? 'primary' : 'dark'}" data-night="0">☀ 낮 썰물</button><button class="btn ${SAVE.night ? 'primary' : 'dark'}" data-night="1">🌙 밤 썰물</button></div>
-        <p class="note">밤 썰물: 섬이 어둡고 멀리 보이지 않지만, 보물이 스스로 빛나고 등대 빛줄기가 바다를 훑어요. 희귀 변종이 세 배 자주 나와요. ${canSwitchNightToday() ? '지금 고르면 오늘부터 바로 바뀌어요.' : '선택은 다음 탐험부터 적용돼요.'}</p>`;
+        <p class="note">밤 썰물: 섬이 어둡고 멀리 보이지 않지만, 보물이 스스로 빛나고 등대 빛줄기가 바다를 훑어요. 희귀 변종이 세 배 자주 나와요. ${canSwitchNightToday() ? '지금 고르면 오늘부터 바로 바뀌어요.' : '선택은 다음 탐험부터 적용돼요.'}</p><p class="note">등대 남서쪽 비탈 아래 해안에는 빛이 지나갈 때만 보이는 표식이 있어요. 물이 오르기 전에 바위 틈을 찾아보세요.</p>`;
       else h += `<p class="note">등대는 항구 서쪽 해안 언덕에 있어요. 네 단계를 모두 마치면 밤 썰물 탐험을 고를 수 있어요.</p>`;
     }
   } else {
@@ -9142,11 +9490,14 @@ function renderPort() {
       ${SAVE.clue ? '<p class="note">항해일지: 밀물이 차면 서쪽 능선이 가장 안전한 귀갓길이에요.</p>' : ''}</div>
       <div><details><summary>도전 과제 ${achCount()}/${ACH.length} · 펼치기</summary><ul class="compactAchievements">${ACH.map(a => `<li title="${a.desc}">${SAVE.ach[a.id] ? '✓' : '○'} ${a.name} · ${a.desc}</li>`).join('')}</ul></details></div></div>`;
   }
-  if (PM_TAB === 'record' && !CH.on) h += coastJournal() + '<p class="note">큰 지도에서 밀물길 개방 시간, 해변 보관함, 지도 조각 단서를 확인할 수 있어요.</p>';
+  if (PM_TAB === 'record' && !CH.on) h += voyageCard() + coastJournal() + '<p class="note">큰 지도에서 밀물길 개방 시간, 해변 보관함, 지도 조각 단서를 확인할 수 있어요.</p>';
   f += `<button class="btn" id="pmClose">${TOUCH.dev ? '닫기' : '닫기 (Esc)'}</button>`;
   body.innerHTML = h; foot.innerHTML = f;
   body.querySelectorAll('[data-coast]').forEach(b => b.onclick = () => {
     if (useCoastButton(b.dataset.coast, Number(b.dataset.index))) { renderBag(true); renderPort(); }
+  });
+  body.querySelectorAll('[data-exhibit]').forEach(button => button.onclick = () => {
+    if (displaySpecialExhibit(button.dataset.exhibit)) renderPort();
   });
   const signalButton = $('pmSignal');
   if (signalButton) signalButton.onclick = () => { if (useSignalBoard()) renderPort(); };
@@ -9539,6 +9890,9 @@ async function boot() {
   lateWorld();
   buildSignalSites();
   buildCoastExpansion();
+  withOwnRng(7013, buildNightCave);
+  withOwnRng(7014, buildVoyageMarks);
+  syncNightCave();
   expInit();
   buildMinimap();
   hudInit();
@@ -9939,6 +10293,7 @@ function bindUI() {
   $('btnMap').onclick = () => { SND.click(); toggleMap(); };
   $('minimapWrap').onclick = () => openMap();
   $('btnMapClose').onclick = () => closeMap();
+  bindMapPin();
   $('bagPanel').onclick = () => { if (G.mode === 'play') openBag(); };
   $('bvClose').onclick = () => { SND.click(); closeBag(); };
   $('bvOk').onclick = () => confirmSwap();
@@ -10152,13 +10507,15 @@ function renderSwapView(body, want, cap, used) {
       rec.textContent = same ? '추천 선택됨' : '추천 선택';
     }
     const delta = price - lost;
-    $('bvFreed').textContent = `${freed} / ${need}칸`;
+    const ready = freed >= need;
+    $('bvSpaceLabel').textContent = ready ? '교환 후 가방' : '확보한 공간';
+    $('bvFreed').textContent = ready ? `${used - freed + T.size} / ${cap}칸` : `${freed} / ${need}칸`;
     const value = $('bvDelta');
     value.textContent = `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs(delta)} G`;
     value.classList.toggle('gain', delta > 0);
     value.classList.toggle('loss', delta < 0);
     const confirm = $('bvOk');
-    confirm.disabled = freed < need;
+    confirm.disabled = !ready;
     confirm.textContent = confirm.disabled ? `${need - freed}칸 더 필요` : '내려놓고 담기';
   };
   const applySelection = (i, select) => {
