@@ -690,7 +690,7 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
 /* 바꿔 담기 */
 #bagView .bagpanel.swap {
   --swap-pad:20px;
-  width:min(500px,100%);
+  width:min(440px,100%);
   max-height:calc((100dvh - 32px) / var(--ui));
   padding:0;
   overflow:hidden;
@@ -704,7 +704,7 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
   gap:4px 12px;
   flex:none;
   margin:0;
-  padding:14px var(--swap-pad);
+  padding:12px var(--swap-pad);
   background:#123d42;
   color:#fff9e9;
 }
@@ -712,7 +712,7 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
 .bagpanel.swap .mapPaused {display:block;flex:none;font-size:12px;color:#c9e0dc;opacity:1}
 .bagpanel.swap #bvBody {
   flex:0 1 auto;
-  padding:14px var(--swap-pad) 12px;
+  padding:12px var(--swap-pad) 10px;
   overscroll-behavior:contain;
   scrollbar-color:#829e95 transparent;
 }
@@ -727,12 +727,10 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
   background:#e8f2ec;
 }
 .bvtarget .gem {width:24px;height:24px;margin:0 4px}
-.bvtarget small,.bvtarget strong,.bvtarget .bvmeta {display:block}
-.bvtarget small {font-size:12px;color:#47655e}
+.bvtarget strong,.bvmeta {display:block}
 .bvtarget strong {font-size:16px;word-break:keep-all}
-.bvtarget .bvmeta {font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
-.bvneed {display:grid;gap:3px;justify-items:end;text-align:right;font-size:13px;white-space:nowrap}
-.bvneed b {color:#17594f}
+.bvmeta {font-size:12px;color:#45645d;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bvneed {font-size:13px;white-space:nowrap;color:#17594f}
 .bvlisthead {display:flex;align-items:center;justify-content:space-between;gap:4px 8px;flex-wrap:wrap;margin:10px 0 5px}
 .bvlisthead h3 {margin:0;font:700 14px var(--f-body)}
 .bvreset {
@@ -752,36 +750,58 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
 .bagpanel:not(.swap) .bvfoot {margin-top:14px}
 .bvchoice {
   display:grid;
-  grid-template-columns:12px minmax(0,1fr) auto minmax(44px,auto) 20px;
+  grid-template-columns:12px minmax(0,1fr) auto;
   align-items:center;
   gap:8px;
   width:100%;
-  min-height:42px;
-  padding:6px 10px;
+  min-height:48px;
+  padding:4px 8px 4px 10px;
   border:1px solid #e3dbca;
   border-radius:8px;
   background:#fffdf7;
   color:var(--ink);
   font:500 14px var(--f-body);
   text-align:left;
+}
+button.bvchoice {cursor:pointer}
+button.bvchoice:hover {border-color:#6c958a}
+.bvchoice.sel {border-color:#6f9a8d;background:#e2efe7}
+.bvchoice .sw {width:12px;height:12px;border:1px solid #10343c26;border-radius:4px}
+.bvitem {min-width:0;word-break:keep-all;overflow-wrap:anywhere}
+.bvitem small {margin-left:3px;font-size:11px;color:#45645d;white-space:nowrap}
+.bvstep {
+  display:grid;
+  grid-template-columns:40px 20px 40px;
+  align-items:center;
+  text-align:center;
+  border:1px solid #c8d6ce;
+  border-radius:7px;
+  background:#fffdf7;
+}
+.bvstep button {
+  height:36px;
+  border:0;
+  border-radius:6px;
+  background:transparent;
+  color:#17594f;
+  font:700 20px var(--f-body);
+  line-height:1;
   cursor:pointer;
 }
-.bvchoice:hover {border-color:#6c958a}
-.bvchoice[aria-pressed="true"] {border-color:#6f9a8d;background:#e2efe7}
-.bvchoice .sw {width:12px;height:12px;border:1px solid #10343c26;border-radius:4px}
-.bvchoice .nm {word-break:keep-all;overflow-wrap:anywhere}
-.bvchoice .sz,.bvchoice .vl {white-space:nowrap;font-variant-numeric:tabular-nums}
-.bvchoice .sz {font-size:12px;color:#45645d}
-.bvchoice .vl {text-align:right;font-weight:700}
+.bvstep button:hover {background:#e2efe7}
+.bvstep button[aria-disabled="true"] {background:transparent;color:#72837b;cursor:default}
+.bvstep output {font-weight:700;font-variant-numeric:tabular-nums}
+.bvstep button:focus-visible {outline:2px solid #1b7267;outline-offset:-2px}
 .bvcheck {
-  width:20px;
-  height:20px;
+  width:22px;
+  height:22px;
+  margin-right:3px;
   border:1px solid #789188;
   border-radius:5px;
   color:transparent;
   font-size:13px;
   font-weight:800;
-  line-height:18px;
+  line-height:20px;
   text-align:center;
 }
 .bvchoice[aria-pressed="true"] .bvcheck {background:#226657;border-color:#226657;color:#fff}
@@ -793,7 +813,7 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
 }
 .bvsummary {
   display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-columns:repeat(2,minmax(0,1fr));
   gap:5px;
   margin:0 0 10px;
   text-align:center;
@@ -1050,13 +1070,12 @@ body.touch #tRun.on.tired{background:radial-gradient(closest-side,#e8846b calc(1
 </div></div>
 
 <div id="bagView" class="screen dim hidden"><div class="panel narrow bagpanel">
-  <div class="mapHead"><h2 id="bvTitle">🎒 가방</h2><span class="mapPaused">⏸ 가방을 보는 동안 시간이 멈춰요</span></div>
+  <div class="mapHead"><h2 id="bvTitle">🎒 가방</h2><span class="mapPaused" id="bvPaused">⏸ 가방을 보는 동안 시간이 멈춰요</span></div>
   <div id="bvBody"></div>
   <div class="bvfoot">
     <dl class="bvsummary hidden" id="bvSummary" aria-live="polite" aria-atomic="true">
-      <div><dt>비운 공간</dt><dd id="bvFreed"></dd></div>
-      <div><dt>내려놓는 값</dt><dd id="bvLost"></dd></div>
-      <div><dt>가방 가치 변화</dt><dd id="bvDelta"></dd></div>
+      <div><dt>확보한 공간</dt><dd id="bvFreed"></dd></div>
+      <div><dt>교환 차액</dt><dd id="bvDelta"></dd></div>
     </dl>
     <div class="menu row2"><button class="btn dark" id="bvClose">닫기 (Q)</button><button class="btn primary hidden" id="bvOk">내려놓고 담기</button></div>
   </div>
@@ -10047,6 +10066,7 @@ function renderBagView() {
   const body = $('bvBody');
   $('bagView').querySelector('.bagpanel').classList.toggle('swap', !!want);
   $('bvTitle').textContent = want ? '바꿔 담기' : '🎒 가방';
+  $('bvPaused').textContent = want ? '⏸ 시간 멈춤' : '⏸ 가방을 보는 동안 시간이 멈춰요';
   $('bvSummary').classList.toggle('hidden', !want);
   $('bvOk').classList.toggle('hidden', !want);
   $('bvClose').textContent = want ? '취소' : TOUCH.dev ? '닫기' : `닫기 (${keyName('bag')})`;
@@ -10068,24 +10088,47 @@ function renderBagView() {
   });
 }
 function renderSwapView(body, want, cap, used) {
-  const T = TREASURES[want.type], need = T.size - (cap - used);
-  const rows = G.bag.map((item, i) => {
-    const B = TREASURES[item.type];
-    return `<button class="bvchoice" type="button" data-sel="${i}" aria-pressed="false">
-      <span class="sw" aria-hidden="true" style="background:${hexCss(B.color)}"></span><span class="nm">${B.name}</span>
-      <span class="sz">${B.size}칸</span><span class="vl">${priceOf(item.type)} G</span><span class="bvcheck" aria-hidden="true">✓</span>
-    </button>`;
+  const T = TREASURES[want.type];
+  const price = priceOf(want.type), need = T.size - (cap - used);
+  const groups = new Map();
+  G.bag.forEach(({ type }, i) => {
+    if (!groups.has(type)) groups.set(type, []);
+    groups.get(type).push(i);
   });
-  body.innerHTML = `<div class="bvtarget">
+  const rows = [...groups].map(([type, indices]) => {
+    const B = TREASURES[type], count = indices.length;
+    const item = `<span class="sw" aria-hidden="true" style="background:${hexCss(B.color)}"></span>
+      <span class="bvitem"><b>${B.name}</b>${count > 1 ? ` <small>${count}개</small>` : ''}
+      <span class="bvmeta">${B.size}칸 · ${priceOf(type)} G</span></span>`;
+    if (count === 1) {
+      return `<button class="bvchoice" type="button" data-bv-type="${type}" aria-pressed="false">
+        ${item}<span class="bvcheck" aria-hidden="true">✓</span>
+      </button>`;
+    }
+    return `<div class="bvchoice" data-bv-type="${type}">
+      ${item}
+      <div class="bvstep" role="group" aria-label="${B.name} 내려놓을 수량">
+        <button type="button" data-adjust="-1" aria-label="${B.name} 한 개 덜 내려놓기">−</button>
+        <output aria-label="선택한 수량"></output>
+        <button type="button" data-adjust="1" aria-label="${B.name} 한 개 더 내려놓기">+</button>
+      </div>
+    </div>`;
+  });
+  body.innerHTML = `<div class="bvtarget" role="group" aria-label="담을 보물">
     <span class="gem" aria-hidden="true" style="--c:${hexCss(T.color)}"></span>
-    <div><small>담을 보물</small><strong>${T.name}</strong><span class="bvmeta">${T.size}칸 · ${priceOf(want.type)} G</span></div>
-    <div class="bvneed"><small>가방 ${used} / ${cap}칸</small><b>${need}칸 비우기</b></div>
+    <div><strong>${T.name}</strong><span class="bvmeta">${T.size}칸 · ${price} G</span></div>
+    <b class="bvneed">${need}칸 필요</b>
   </div>
-  <div class="bvlisthead"><h3 id="bvListTitle">내려놓을 보물</h3>${BAGV.plan ? '<button class="bvreset" type="button" id="bvRec">추천 적용</button>' : ''}</div>
+  <div class="bvlisthead"><h3 id="bvListTitle">내려놓을 보물</h3>${BAGV.plan ? '<button class="bvreset" type="button" id="bvRec">추천 선택</button>' : ''}</div>
   <div class="bvchoices" role="group" aria-labelledby="bvListTitle">${rows.join('')}</div>
   <p class="bvhelp">내려놓은 보물은 다시 주울 수 있어요.</p>`;
   body.scrollTop = 0;
-  const choices = body.querySelectorAll('[data-sel]'), rec = $('bvRec');
+  const choices = [...body.querySelectorAll('[data-bv-type]')].map(row => ({
+    row, indices: groups.get(row.dataset.bvType),
+    count: row.querySelector('output'), decrease: row.querySelector('[data-adjust="-1"]'),
+    increase: row.querySelector('[data-adjust="1"]'),
+  }));
+  const rec = $('bvRec');
   const update = () => {
     let freed = 0, lost = 0;
     for (const i of BAGV.sel) {
@@ -10093,16 +10136,23 @@ function renderSwapView(body, want, cap, used) {
       freed += TREASURES[type].size;
       lost += priceOf(type);
     }
-    for (const button of choices) button.setAttribute('aria-pressed', String(BAGV.sel.has(+button.dataset.sel)));
+    for (const {row, indices, count, decrease, increase} of choices) {
+      const selected = indices.filter(i => BAGV.sel.has(i)).length;
+      row.classList.toggle('sel', selected > 0);
+      if (count) {
+        count.textContent = selected;
+        decrease.setAttribute('aria-disabled', String(selected === 0));
+        increase.setAttribute('aria-disabled', String(selected === indices.length));
+      } else row.setAttribute('aria-pressed', String(selected > 0));
+    }
     if (rec) {
       const recommended = BAGV.plan.drop;
       const same = recommended.length === BAGV.sel.size && recommended.every(i => BAGV.sel.has(i));
       rec.setAttribute('aria-disabled', String(same));
-      rec.textContent = same ? '추천 적용됨' : '추천 적용';
+      rec.textContent = same ? '추천 선택됨' : '추천 선택';
     }
-    const delta = priceOf(want.type) - lost;
+    const delta = price - lost;
     $('bvFreed').textContent = `${freed} / ${need}칸`;
-    $('bvLost').textContent = `${lost} G`;
     const value = $('bvDelta');
     value.textContent = `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs(delta)} G`;
     value.classList.toggle('gain', delta > 0);
@@ -10111,19 +10161,31 @@ function renderSwapView(body, want, cap, used) {
     confirm.disabled = freed < need;
     confirm.textContent = confirm.disabled ? `${need - freed}칸 더 필요` : '내려놓고 담기';
   };
+  const applySelection = (i, select) => {
+    if (i === undefined) return;
+    if (select) BAGV.sel.add(i);
+    else BAGV.sel.delete(i);
+    SND.click();
+    update();
+  };
   if (rec) rec.onclick = () => {
     if (rec.getAttribute('aria-disabled') === 'true') return;
     BAGV.sel = new Set(BAGV.plan.drop);
     SND.click();
     update();
   };
-  for (const button of choices) button.onclick = () => {
-    const i = +button.dataset.sel;
-    if (BAGV.sel.has(i)) BAGV.sel.delete(i);
-    else BAGV.sel.add(i);
-    SND.click();
-    update();
-  };
+  for (const {row, indices, count, decrease, increase} of choices) {
+    if (count) {
+      decrease.onclick = () => {
+        const selected = indices.filter(i => BAGV.sel.has(i));
+        applySelection(selected[selected.length - 1], false);
+      };
+      increase.onclick = () => applySelection(indices.find(i => !BAGV.sel.has(i)), true);
+    } else {
+      const [i] = indices;
+      row.onclick = () => applySelection(i, !BAGV.sel.has(i));
+    }
+  }
   update();
 }
 function confirmSwap() {
