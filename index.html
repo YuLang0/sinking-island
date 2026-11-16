@@ -4063,7 +4063,7 @@ function rock(x, z, s, o = {}) {
   const sx = s * (0.8 + srng() * 0.5), sz = s * (0.8 + srng() * 0.5), sy = s * (o.flat ?? (0.55 + srng() * 0.35));
   ball(o.key || 'stone', x, y + sy * 0.35, z, 1, o.color ?? mixHex(C.rock, C.rockD, srng()), { sub: 1, bump: 0.22, seed: (srng() * 9999) | 0, sx, sy, sz, ry: srng() * 6, grad: 0.35, jit: 0.08 });
   if (o.moss) ball(o.key || 'stone', x, y + sy * 0.72, z, 1, C.moss, { sub: 1, bump: 0.2, seed: (srng() * 9999) | 0, sx: sx * 0.8, sy: sy * 0.35, sz: sz * 0.8, grad: 0.1 });
-  if (o.col !== false) colCircle(x, z, Math.max(sx, sz) * 0.85, y + sy * 1.1);
+  if (o.col !== false) return colCircle(x, z, Math.max(sx, sz) * 0.85, y + sy * 1.1);
 }
 function crate(x, z, s = 0.9, ry = 0, y = null) {
   y = y ?? groundAt(x, z);
@@ -5426,15 +5426,31 @@ function buildDecor() {
   });
   // 숲과 능선의 바위
   const rr2 = mulberry32(123);
-  let placed = 0;
+  const [cavePathX, cavePathZ] = cavePoint(0, 5.6);
+  const [caveRockX, caveRockZ] = cavePoint(3.75, 8);
+  let placed = 0, setCaveRockMoved;
   for (let k = 0; k < 4000 && placed < 60; k++) {
     const x = -44 + rr2() * 80, z = -42 + rr2() * 88;
     const h = terrainAt(x, z);
     if (h < 2.6 || inPort(x, z) || pathDistAt(x, z) < 1.4) continue;
     if (blockedAt(x, z, 1.4)) continue;
-    rock(x, z, 0.45 + rr2() * 0.8, { moss: rr2() < 0.6 });
+    const size = 0.45 + rr2() * 0.8, moss = rr2() < 0.6;
+    if (!setCaveRockMoved && Math.hypot(x - cavePathX, z - cavePathZ) < 1.7) {
+      // 동굴 뒷벽과 비탈 사이를 막던 바위를 통로 밖으로 옮긴다.
+      const y = terrainAt(caveRockX, caveRockZ);
+      const moved = rock(caveRockX, caveRockZ, size, { y, moss });
+      const original = colCircle(x, z, moved.r, moved.top - y + h);
+      setCaveRockMoved = on => {
+        original.on = !on;
+        moved.on = on;
+      };
+      setCaveRockMoved(false);
+    } else {
+      rock(x, z, size, { moss });
+    }
     placed++;
   }
+  return setCaveRockMoved;
 }
 
 /* =========================================================
@@ -9878,7 +9894,7 @@ function showEnding(first) {
    ========================================================= */
 const tick = () => new Promise(r => setTimeout(r, 0));
 // 빌드 식별자: 어떤 판을 실행 중인지 확인용 (화면 구석·설정·콘솔에만 표시, 저장·규칙과 무관)
-const BUILD_ID = 'Sinking Island build 2026-11-continuous-orbit';
+const BUILD_ID = 'Sinking Island build 2026-11-cave-clearance';
 async function boot() {
   const say = t => { $('loadText').textContent = t; };
   loadSettings();
@@ -9888,7 +9904,8 @@ async function boot() {
   say('섬의 지형을 빚는 중…'); await tick();
   buildTerrainData();
   say('항구와 유적을 세우는 중…'); await tick();
-  buildPort(); buildSigns(); buildRuins(); buildWreck(); buildWestHill(); buildOldTree(); buildDecor();
+  buildPort(); buildSigns(); buildRuins(); buildWreck(); buildWestHill(); buildOldTree();
+  const setCaveRockMoved = buildDecor();
   // 침수 구역의 실제 통로 높이를 잼
   RP.raft.on = false;
   for (const z of FLOOD_ZONES) z.h = groundAt(z.x, z.z);
@@ -9900,12 +9917,20 @@ async function boot() {
   flushParts();
   buildTerrainGPU();
   say('물길을 살피는 중…'); await tick();
+  setCaveRockMoved?.(true);
   buildShoreTex();
+  // 기존 저장에서 판 둔덕과 들춘 돌의 번호가 유지되도록 보물 후보는 원래 배치로 계산한다.
+  setCaveRockMoved?.(false);
   buildNav();
   buildTreasurePools();
   lateWorld();
   buildSignalSites();
   buildCoastExpansion();
+  if (setCaveRockMoved) {
+    setCaveRockMoved(true);
+    const { x, z } = NIGHT_CAVE;
+    buildNav(x - 4, x + 6, z - 11, z + 4);
+  }
   withOwnRng(7013, buildNightCave);
   withOwnRng(7014, buildVoyageMarks);
   syncNightCave();
