@@ -147,10 +147,16 @@ body:not(.touch) #btnView,body:not(.touch) #title #btnViewEdition{display:none}
 #letterbox i:first-child{top:0;transform:translateY(-101%)}
 #letterbox i:last-child{bottom:0;transform:translateY(101%)}
 body.cine #letterbox i{transform:none}
-#btnIntroSkip{position:fixed;top:calc(16px + var(--safe-t));right:calc(20px + var(--safe-r));z-index:19;min-width:84px;min-height:44px;padding:10px 16px;border:1px solid rgba(255,255,255,.38);border-radius:8px;color:#fff8e8;background:rgba(4,24,31,.64);backdrop-filter:blur(8px);font:700 12px var(--f-body);letter-spacing:.15em;cursor:pointer;touch-action:manipulation}
-#btnIntroSkip:hover{background:rgba(25,62,68,.92);border-color:#fff8e8}
-#btnIntroSkip:focus-visible{outline:3px solid #f5cf71;outline-offset:4px}
-#btnIntroSkip[hidden]{display:none}
+#btnCutsceneSkip{position:fixed;top:calc(16px + var(--safe-t));right:calc(20px + var(--safe-r));z-index:19;min-width:84px;min-height:44px;padding:10px 16px;border:1px solid rgba(255,255,255,.38);border-radius:8px;color:#fff8e8;background:rgba(4,24,31,.64);backdrop-filter:blur(8px);font:700 12px var(--f-body);letter-spacing:.15em;cursor:pointer;touch-action:manipulation}
+#btnCutsceneSkip:hover{background:rgba(25,62,68,.92);border-color:#fff8e8}
+#btnCutsceneSkip:focus-visible{outline:3px solid #f5cf71;outline-offset:4px}
+#btnCutsceneSkip[hidden],#milestoneCaption[hidden]{display:none}
+#milestoneCaption{position:fixed;left:50%;bottom:calc(11vh + var(--safe-b));transform:translateX(-50%);z-index:16;width:min(84vw,670px);padding:12px 18px 14px;text-align:center;color:#fffaee;background:linear-gradient(90deg,transparent,rgba(3,20,27,.86) 19%,rgba(3,20,27,.86) 81%,transparent);text-shadow:0 2px 12px #03141b;pointer-events:none}
+#milestoneCaption h2{margin:0 0 7px;font:700 clamp(25px,5vw,46px) var(--f-display);color:#ffdfa0;text-wrap:balance}
+#milestoneCaption p{margin:0;font:500 clamp(14px,2.5vw,19px)/1.6 var(--f-body);text-wrap:balance}
+@keyframes milestone-in{from{opacity:0}to{opacity:1}}
+#milestoneCaption.arrive{animation:milestone-in .55s ease-out}
+@media(prefers-reduced-motion:reduce){#milestoneCaption.arrive{animation:none}}
 #hud,#zoneTags{transition:opacity .45s}
 body.cine #hud,body.cine #zoneTags,body.endshow #hud,body.endshow #zoneTags{opacity:0}
 body.cine #hint,body.endshow #hint,body.cine #stamFloat{visibility:hidden}
@@ -882,7 +888,8 @@ button.bvchoice:hover {border-color:#6c958a}
 <div id="tabLock" class="hidden" role="alert"><b>다른 탭에서 이 게임이 더 최신 상태로 저장됐어요.</b> 최신 진행을 지키려고 이 탭은 더 이상 저장하지 않아요. <button class="btn small" id="btnTabReload">최신 진행 불러오기</button></div>
 <div id="zoneTags"></div>
 <div id="letterbox"><i></i><i></i></div>
-<button type="button" id="btnIntroSkip" hidden aria-label="시작 연출 건너뛰기">SKIP</button>
+<div id="milestoneCaption" role="status" aria-live="polite" hidden><h2 id="milestoneTitle"></h2><p id="milestoneLine"></p></div>
+<button type="button" id="btnCutsceneSkip" hidden aria-label="시작 연출 건너뛰기">SKIP</button>
 
 <div id="hud" class="hidden">
   <div id="hudTop">
@@ -1678,6 +1685,7 @@ function writeSave() {
 function enterReadOnly() {
   if (SAVE_IO.readonly) return;
   SAVE_IO.readonly = true;
+  finishMilestoneScene(false);
   if (G.mode === 'play') pauseGame();
   const el = document.getElementById('tabLock'); if (el) el.classList.remove('hidden');
 }
@@ -3182,6 +3190,7 @@ function onContextLost(e) {
   e.preventDefault();   // 이걸 해야 브라우저가 복구를 시도함
   if (GPU.lost) return;
   GPU.lost = true; GPU.lostAt = performance.now();
+  finishMilestoneScene(false);
   if (G.mode === 'play') pauseGame();
   saveProgress();
   showGpuLost('wait');
@@ -3408,6 +3417,7 @@ function visCaster(B) {
 // 하나의 궤도 카메라: 거리가 0이 되면 같은 시선 그대로 눈높이에 도달한다.
 function firstPersonView() { return CAM.dist < .18 && G.mode !== 'title' && G.mode !== 'boot' && !G.cine && !G.peek; }
 function cameraBodyAlpha() {
+  if (milestoneScene?.kind === 'compass' && milestoneScene.index === 0) return 0;
   return G.mode === 'title' || G.mode === 'boot' || G.cine || G.peek ? 1 : smooth(.4, 2.4, Math.min(CAM.dist, CAMS.viewDist));
 }
 function updateCamera() {
@@ -3451,7 +3461,8 @@ function toScreen(x, y, z) {
 function setCommon(P) {
   u3v(P, 'uSunDir', SUN_DIR); u3v(P, 'uSunCol', ENV.sun); u3v(P, 'uSkyCol', ENV.sky); u3v(P, 'uGndCol', ENV.gnd);
   u3f(P, 'uCamPos', CAM.ex, CAM.ey, CAM.ez); u3v(P, 'uFogCol', ENV.fog); u2f(P, 'uFog', ENV.fogNear, ENV.fogFar);
-  u1f(P, 'uTime', R.time); u1f(P, 'uLevel', U_LEVEL.v); u1f(P, 'uFuture', R.future); u1f(P, 'uWarn', R.warn);
+  u1f(P, 'uTime', R.time); u1f(P, 'uLevel', milestoneScene ? CFG.WL : U_LEVEL.v);
+  u1f(P, 'uFuture', R.future); u1f(P, 'uWarn', milestoneScene ? 0 : R.warn);
   u1f(P, 'uExposure', ENV.exp);
   uM4(P, 'uLightVP', LVP); u1i(P, 'uShadowMap', 0);
   u1f(P, 'uShadowOn', R.shadowSize ? 1 : 0); u1f(P, 'uShadowTexel', R.shadowSize ? 1 / R.shadowSize : 0);
@@ -4621,8 +4632,9 @@ function buildLighthouseParts(Y, LX, LZ, scale) {
   WORLD.anim.push((dt, t) => {
     const L = SAVE.light | 0, ang = t * 0.55;
     if (LIGHT_PARTS.lens.vis) M4.compose(LIGHT_PARTS.lens.m, LX, Y + 7.25 * scale, LZ, 0, ang, 0, scale, scale, scale);
-    const on = L >= LIGHT_STAGES.length && G.mode !== 'title';
-    const k = on ? (G.night ? 1 : 0.35 + 0.4 * (WORLD.beacon ? WORLD.beacon.a : 0)) : 0;
+    const lighting = milestoneScene?.kind === 'lighthouse';
+    const on = L >= LIGHT_STAGES.length && G.mode !== 'title' && (!lighting || milestoneScene.index > 0);
+    const k = on ? (G.night || milestoneScene ? 1 : 0.35 + 0.4 * (WORLD.beacon ? WORLD.beacon.a : 0)) : 0;
     const reflection = caveBeamStrength(ang);
     updateCaveLight(reflection);
     for (const b of LIGHT_PARTS.beams) {
@@ -4682,8 +4694,8 @@ function takeCaveExhibit() {
   if (!nightCaveOpen() || SAVE.caveTreasure || SAVE_IO.readonly) return;
   SAVE.caveTreasure = true;
   requestSave(); SND.achieve();
-  toast('월광 나침반 발견 · 항구 전시실에서 전시할 수 있어요','good',4);
-  openReader('월광 나침반','등대 불빛을 오래 받아 푸르게 빛나는 나침반이다. 뒷면에는 “불빛이 돌아오는 곳이 우리의 항구”라고 새겨져 있다.');
+  const readCompass = () => openReader('월광 나침반', '등대 불빛을 오래 받아 푸르게 빛나는 나침반이다. 뒷면에는 “불빛이 돌아오는 곳이 우리의 항구”라고 새겨져 있다.\n\n항구 전시실에서 전시할 수 있어요.');
+  if (!playMilestoneScene('compass', readCompass)) readCompass();
 }
 function buildNightCave() {
   const c = NIGHT_CAVE, bodyKey = 'tmpNightCave', roofKey = 'tmpNightCaveRoof', gateKey = 'tmpNightCaveGate';
@@ -4730,10 +4742,18 @@ function buildNightCave() {
   const glow = addGlow(x,y+.6,z,1.75,0x9ff3ff,0,{shape:1,pulse:.24});
   const visible = () => nightCaveOpen() && !SAVE.caveTreasure;
   WORLD.anim.push((dt,t) => {
-    c.roof.vis = !CH.on && (G.mode === 'title' || firstPersonView() || !insideNightCave());
-    model.vis = G.mode !== 'title' && visible();
+    const reveal = milestoneScene?.kind === 'compass' && milestoneScene.index === 0;
+    c.roof.vis = !CH.on && !reveal && (G.mode === 'title' || firstPersonView() || !insideNightCave());
+    c.gate.vis = !reveal && c.gateCol.on;
+    model.vis = reveal || (G.mode !== 'title' && visible());
     glow.a = model.vis ? .72 : 0;
-    if (model.vis) M4.compose(model.m,x,y+.42+.06*Math.sin(t*2),z,0,t*.7,0);
+    glow.y = y + (reveal ? .9 : .6);
+    if (model.vis) {
+      const angle = REDUCED && reveal ? .5 : t * .7;
+      const bob = REDUCED && reveal ? 0 : .06 * Math.sin(t * 2);
+      const scale = reveal ? 1.35 : 1;
+      M4.compose(model.m, x, y + (reveal ? .9 : .42) + bob, z, 0, angle, 0, scale, scale, scale);
+    }
   });
   addInter({x,z,y,r:1.35,dy:.95,name:'월광 나침반',act:'챙기기',prio:2,
     mk:[x,y+1.0,z],on:visible,use:takeCaveExhibit});
@@ -5810,7 +5830,7 @@ function fxUpload(time) {
     put4(D.d[1], m, 0.14, 0.22, a, 0);
     m++;
   }
-  if (G.mode !== 'title' && G.mode !== 'boot' && P.vis !== false && !firstPersonView()) {
+  if (G.mode !== 'title' && G.mode !== 'boot' && P.vis !== false && !firstPersonView() && cameraBodyAlpha() > 0) {
     const gy = P.ground;
     if (gy > U_LEVEL.v - 0.05) { put4(D.d[0], m, P.rx, gy + 0.04, P.rz, 0); put4(D.d[1], m, 0.55, 0.5, 0.42, 2); m++; }
     const ry = Math.max(gy, U_LEVEL.v) + 0.05;
@@ -9511,6 +9531,7 @@ function renderPort() {
       }).join('') + '</div>';
       if (lightDone()) h += `<h3>🌙 밤 썰물</h3><div class="nightpick"><button class="btn ${!SAVE.night ? 'primary' : 'dark'}" data-night="0">☀ 낮 썰물</button><button class="btn ${SAVE.night ? 'primary' : 'dark'}" data-night="1">🌙 밤 썰물</button></div>
         <p class="note">밤 썰물: 섬이 어둡고 멀리 보이지 않지만, 보물이 스스로 빛나고 등대 빛줄기가 바다를 훑어요. 희귀 변종이 세 배 자주 나와요. ${canSwitchNightToday() ? '지금 고르면 오늘부터 바로 바뀌어요.' : '선택은 다음 탐험부터 적용돼요.'}</p><p class="note">등대 남서쪽 비탈 아래 해안에는 빛이 지나갈 때만 보이는 표식이 있어요. 물이 오르기 전에 바위 틈을 찾아보세요.</p>`;
+      if (lightDone()) h += `<h3>컷신 다시 보기</h3><div class="nightpick"><button class="btn" data-milestone="lighthouse">등대 점등</button>${SAVE.caveTreasure ? '<button class="btn" data-milestone="compass">월광 나침반 엔딩</button>' : ''}</div>`;
       else h += `<p class="note">등대는 항구 서쪽 해안 언덕에 있어요. 네 단계를 모두 마치면 밤 썰물 탐험을 고를 수 있어요.</p>`;
     }
   } else {
@@ -9577,7 +9598,15 @@ function renderPort() {
     const card = $('fac_' + id); if (card) card.classList.add('bought');
   });
   body.querySelectorAll('[data-show]').forEach(btn => btn.onclick = () => { if (displayTreasure(btn.dataset.show)) { renderPort(); renderBag(true); } });
-  body.querySelectorAll('[data-light]').forEach(btn => btn.onclick = () => { if (buyLightStage()) { renderPort(); renderBag(true); const c = $('light_' + btn.dataset.light); if (c) c.classList.add('bought'); } });
+  const reopenLight = () => openPort('light');
+  body.querySelectorAll('[data-light]').forEach(btn => btn.onclick = () => {
+    if (!buyLightStage()) return;
+    renderBag(true);
+    if (lightDone() && playMilestoneScene('lighthouse', reopenLight)) return;
+    renderPort();
+    $('light_' + btn.dataset.light)?.classList.add('bought');
+  });
+  body.querySelectorAll('[data-milestone]').forEach(btn => btn.onclick = () => playMilestoneScene(btn.dataset.milestone, reopenLight));
   body.querySelectorAll('[data-night]').forEach(btn => btn.onclick = () => { SND.click(); setNightPref(btn.dataset.night === '1'); renderPort(); });
   $('pmClose').onclick = closePort;
 }
@@ -9894,7 +9923,7 @@ function showEnding(first) {
    ========================================================= */
 const tick = () => new Promise(r => setTimeout(r, 0));
 // 빌드 식별자: 어떤 판을 실행 중인지 확인용 (화면 구석·설정·콘솔에만 표시, 저장·규칙과 무관)
-const BUILD_ID = 'Sinking Island build 2026-11-cave-clearance';
+const BUILD_ID = 'Sinking Island build 2026-11-lighthouse-epilogue';
 async function boot() {
   const say = t => { $('loadText').textContent = t; };
   loadSettings();
@@ -9947,6 +9976,7 @@ async function boot() {
   window.__SI.ready = true;
 }
 function showTitle() {
+  finishMilestoneScene(false);
   cancelCameraOrbit();
   G.mode = 'title'; G.cine = false; G.peek = null;
   $('fpReticle').hidden = true; CAN.classList.remove('fp-aim');
@@ -10074,7 +10104,8 @@ function showDailyResult(o) {
 function playIntro() {
   G.cine = true;
   releaseKeys();
-  const skipButton = $('btnIntroSkip');
+  const skipButton = $('btnCutsceneSkip');
+  skipButton.setAttribute('aria-label', '시작 연출 건너뛰기');
   skipButton.hidden = false;
   // 보이지 않는 HUD나 휴대폰 조작 버튼을 잘못 누르는 것도 막는다.
   const touchVisibility = $('touch').style.visibility;
@@ -10100,6 +10131,101 @@ function playIntro() {
   skipButton.onclick = e => { e.preventDefault(); e.stopPropagation(); finish(); };
   showStory(['썰물이 빠지면, 바다에 잠겼던 옛 유적이 모습을 드러낸다.', '그곳엔 바다신의 유물 셋이 잠들어 있다고 한다.', '물때를 놓치지 말 것. 바다는 기다려 주지 않는다.'], finish);
 }
+
+/* ---------- 등대 점등과 월광 나침반 후일담 ---------- */
+let milestoneScene = null;
+function milestoneShots(kind) {
+  const { x, y, z } = LIGHT_PARTS;
+  const [cx, cz] = cavePoint(0, 2.9), cy = groundAt(cx, cz);
+  // 구도는 초점 x, y, z와 궤도 각도, 높이 각도, 거리 순서다.
+  if (kind === 'lighthouse') return [
+    { time: 3, title: '등대 복원 완료', line: '마지막으로 남은 일은 등대에 불을 밝히는 것이었다.',
+      from: [x, y - 5, z, -0.74, 0.32, 35], to: [x, y - 0.8, z, -0.69, 0.16, 27] },
+    { time: 2.9, title: '등대에 불이 켜졌다', line: '회전 렌즈 너머로 첫 빛이 바다 위를 훑었다.',
+      from: [x, y - 0.6, z, -0.63, 0.17, 17], to: [x, y - 1.8, z, -0.46, 0.24, 24] },
+    { time: 3.7, title: '밤 썰물 탐험 해금', line: '물이 빠지는 밤, 등대 불빛이 어디에 닿는지 살펴보자.',
+      from: [x - 1, y - 6, z + 3, -0.84, 0.48, 46], to: [x - 1, y - 7, z + 3, -0.65, 0.52, 56] },
+  ];
+  return [
+    { time: 3.9, title: '월광 나침반', line: '등대 불빛이 닿은 바위 틈에서 푸른 나침반을 발견했다.',
+      from: [cx, cy + 0.92, cz, -0.78, 0.68, 4.8], to: [cx, cy + 0.96, cz, -0.73, 0.76, 3.55] },
+    { time: 3.5, title: '', line: '나침반 뒷면에는 “불빛이 돌아오는 곳이 우리의 항구”라고 새겨져 있었다.',
+      from: [x - 1, y - 5, z + 1, -0.84, 0.40, 41], to: [x, y - 6, z + 1, -0.65, 0.47, 51] },
+    { time: 4, title: '잠기는 섬 · 끝', line: '등대 불빛이 항구로 돌아가는 길을 비췄다.',
+      from: [-12, 4, 31, -0.37, 0.52, 86], to: [-11, 3, 30, -0.24, 0.56, 103] },
+  ];
+}
+function showMilestoneShot() {
+  const s = milestoneScene, shot = s.shots[s.index];
+  const title = $('milestoneTitle');
+  title.hidden = !shot.title;
+  title.textContent = shot.title;
+  $('milestoneLine').textContent = shot.line;
+  const caption = $('milestoneCaption');
+  caption.classList.remove('arrive');
+  void caption.offsetWidth;
+  caption.classList.add('arrive');
+  if (s.kind === 'lighthouse' && s.index === 1) {
+    SND.relic();
+    if (!REDUCED) fxBurst(LIGHT_PARTS.x, LIGHT_PARTS.y, LIGHT_PARTS.z, [1, .87, .52]);
+  }
+}
+function updateMilestoneScene(dt) {
+  const s = milestoneScene;
+  if (!s || document.hidden) return;
+  s.elapsed += dt;
+  let shot = s.shots[s.index];
+  if (s.elapsed >= shot.time) {
+    s.elapsed -= shot.time;
+    if (++s.index === s.shots.length) { finishMilestoneScene(); return; }
+    showMilestoneShot();
+    shot = s.shots[s.index];
+  }
+  const t = REDUCED ? 0 : smooth(0, 1, s.elapsed / shot.time);
+  const frame = shot.from.map((v, i) => lerp(v, shot.to[i], t));
+  [CAM.tx, CAM.ty, CAM.tz, CAM.yaw, CAM.pitch, CAM.dist] = frame;
+  // 세로 화면에서도 등대와 항구가 함께 들어오도록 컷신 화각만 넓힌다.
+  CAM.fov = R.W < R.H ? .86 : s.camera.fov;
+}
+function playMilestoneScene(kind, after) {
+  if (G.cine || G.peek || CH.on || GPU.lost || (G.mode !== 'play' && G.mode !== 'menu')) return false;
+  if (G.mode === 'menu') closePort();
+  releaseKeys();
+  Object.assign(TOUCH, { x: 0, y: 0, on: false, run: false, act: false });
+  $('knob').style.transform = '';
+  P.vx = P.vz = 0;
+  const hud = $('hud'), touch = $('touch'), skip = $('btnCutsceneSkip');
+  milestoneScene = { kind, shots: milestoneShots(kind), index: 0, elapsed: 0, after,
+    camera: { ...CAM }, hudInert: hud.inert, touchInert: touch.inert, touchVisibility: touch.style.visibility };
+  G.cine = true;
+  hud.inert = touch.inert = true;
+  touch.style.visibility = 'hidden';
+  skip.setAttribute('aria-label', kind === 'lighthouse' ? '등대 점등 컷신 건너뛰기' : '월광 나침반 엔딩 컷신 건너뛰기');
+  skip.hidden = false;
+  skip.onclick = () => finishMilestoneScene();
+  $('milestoneCaption').hidden = false;
+  showMilestoneShot();
+  updateMilestoneScene(0);
+  return true;
+}
+function finishMilestoneScene(resume = true) {
+  const s = milestoneScene;
+  if (!s) return;
+  milestoneScene = null;
+  G.cine = false;
+  Object.assign(CAM, s.camera);
+  const skip = $('btnCutsceneSkip');
+  skip.hidden = true;
+  skip.onclick = null;
+  $('milestoneCaption').hidden = true;
+  $('hud').inert = s.hudInert;
+  $('touch').inert = s.touchInert;
+  $('touch').style.visibility = s.touchVisibility;
+  releaseKeys();
+  CAN.focus();
+  if (resume && s.after) s.after();
+}
+
 // 타이틀 화면: 섬 위를 천천히 도는 카메라
 function titleCam(dt) {
   const t = R.time;
@@ -10115,8 +10241,8 @@ function titleCam(dt) {
 function envUpdate() {
   let k = 0.25;
   if (G.mode !== 'title') k = G.clock ? smooth(0.5, 1.08, G.time / CFG.T) * 0.85 : 0;
-  const wx = G.mode === 'title' ? 'clear' : WEATHER.id;
-  const night = G.night && G.mode !== 'title' ? 1 : 0;
+  const wx = milestoneScene || G.mode === 'title' ? 'clear' : WEATHER.id;
+  const night = milestoneScene ? (milestoneScene.kind === 'compass' ? 1 : 0.72) : G.night && G.mode !== 'title' ? 1 : 0;
   if (night) k = 0;   // 밤에는 저녁빛으로 바뀌지 않음
   mixEnv(k, wx === 'fog' ? 0.78 : wx === 'storm' ? 0.2 : 0, wx === 'storm' ? 1 : 0, night);
   if (wx === 'fog') { ENV.fogNear = CAM.dist * 0.78; ENV.fogFar = CAM.dist + 22; }
@@ -10125,7 +10251,7 @@ function envUpdate() {
   R.windMul = wx === 'storm' ? 2.4 : 1;
   if (night && wx !== 'fog') { ENV.fogNear = CAM.dist * 0.95; ENV.fogFar = CAM.dist + 46; }   // 밤에는 멀리까지 보이지 않음 (빛나는 보물·등대는 보임)
   // 등대: 밀물이 높아질수록 밝아짐. 등롱 유리를 갈아 끼운 뒤(2단계)부터는 늘 은은하게, 불을 밝힌 밤에는 가장 밝게
-  if (WORLD.beacon) WORLD.beacon.a = G.mode === 'title' ? 0.3 : Math.max(smooth(0.35, 0.9, G.time / CFG.T) * 0.95, (SAVE.light | 0) >= 2 ? 0.45 : 0, night && lightDone() ? 1 : 0);
+  if (WORLD.beacon) WORLD.beacon.a = milestoneScene?.kind === 'lighthouse' && milestoneScene.index === 0 ? 0.24 : G.mode === 'title' ? 0.3 : Math.max(smooth(0.35, 0.9, G.time / CFG.T) * 0.95, (SAVE.light | 0) >= 2 ? 0.45 : 0, night && lightDone() ? 1 : 0);
 }
 function soundUpdate() {
   if (!SND.ready) return;
@@ -10178,10 +10304,11 @@ function tickFrame(now) {
     if (n >= 10) ACC = 0;
   } else ACC = 0;
   const p1 = performance.now();
+  updateMilestoneScene(dt);
   const alpha = G.mode === 'play' ? clamp(ACC / CFG.STEP, 0, 1) : 1;
   if (G.mode !== 'pause') updateStructures(dt, R.time);
   if (G.mode === 'title') titleCam(dt);
-  else { updatePlayerModel(alpha, dt, R.time); updateFollowCam(dt); }
+  else { updatePlayerModel(alpha, dt, R.time); if (!milestoneScene) updateFollowCam(dt); }
   updateItems(dt, R.time); updateRelicModels(dt, R.time); updateSpots(dt, R.time); npcFrame(dt, R.time);
   if (G.mode !== 'pause') fxStep(dt);
   envUpdate();
@@ -10194,7 +10321,7 @@ function tickFrame(now) {
   updateSignalMarker();
   updateCoastMarker();
   if (G.mode !== 'title') hudUpdate(dt);
-  const cin = (G.mode === 'play' || G.mode === 'menu') && G.cine && !!(G.peek || G.endingRun);
+  const cin = (G.mode === 'play' || G.mode === 'menu') && G.cine && !!(G.peek || G.endingRun || milestoneScene);
   if (cin !== UI.cine) { UI.cine = cin; document.body.classList.toggle('cine', cin); }
   const p5 = performance.now();
   soundUpdate();
@@ -10228,10 +10355,10 @@ function bindUI() {
       else if (e.code === 'Tab') { e.preventDefault(); cycleFocus(e.shiftKey ? -1 : 1); }
       return;
     }
-    // 오프닝 중에는 게임 키를 처리하지 않는다. Tab으로 SKIP에 접근한 뒤
+    // 건너뛸 수 있는 컷신 중에는 게임 키를 처리하지 않는다. Tab으로 SKIP에 접근한 뒤
     // Enter/Space로 버튼을 누르는 브라우저 기본 동작은 유지한다.
-    if (G.cine && !$('btnIntroSkip').hidden && !topModal()) {
-      if (e.code === 'Tab') { e.preventDefault(); $('btnIntroSkip').focus(); }
+    if (G.cine && !$('btnCutsceneSkip').hidden && !topModal()) {
+      if (e.code === 'Tab') { e.preventDefault(); $('btnCutsceneSkip').focus(); }
       return;
     }
     // 길게 누를 때 브라우저가 보내는 반복 keydown: 한 번만 실행할 행동(상호작용·가방·지도·카메라 회전·음소거·Esc·Tab)은
