@@ -376,17 +376,11 @@ body.cine #bubbles{visibility:hidden}
 .dx small{font-size:12px;opacity:.7;line-height:1.4}
 .dx.unk{background:#f1ece0;color:#7d735f}
 .dx.unk .gem{filter:grayscale(1) brightness(.75)}
-/* 도감: 희귀 변종 카드, 전시실 안내 · 전시실·등대 탭 */
+/* 항구 기록대의 보물 도감과 등대 메뉴 */
 .dexsum{margin:0 0 8px;font-size:15px}
-.dexgoal{margin:0 0 10px;padding:9px 12px;border-radius:10px;background:#f3ead2;font-size:14px;line-height:1.5}
-.dexgoal.ok{background:#e4f3ea;color:#21633c}
 .dx.rare{background:linear-gradient(160deg,#fffdf4,#f1ecff);border:1px solid #cbbcf2}
 .dx.rare.unk{background:#efeaf6;color:#7a6f8f}
 .dx.rare b{color:#5a3fa0}
-.hallslot h4{display:flex;align-items:center;gap:8px}
-.hallslot .gem{width:22px;height:22px}
-.hallslot.rare{background:linear-gradient(160deg,#fffdf4,#f3efff)}
-.hallslot.rare.owned{border-color:#a98be6}
 .nightpick{display:flex;gap:8px;flex-wrap:wrap}
 .nightpick .btn{flex:1 1 140px}
 /* 큰 지도 */
@@ -1398,7 +1392,6 @@ const ACH = [
   { id: 'ending', name: '잠기는 섬의 비밀', desc: '세 유물을 바치고 성소에 들어가기', reward: 0 },
   { id: 'rare1', name: '반짝이는 이변', desc: '희귀 변종 보물을 처음 줍기', reward: 30 },
   { id: 'rare5', name: '희귀 수집가', desc: '희귀 변종 다섯 가지를 모두 찾기', reward: 100 },
-  { id: 'hallFull', name: '항구 박물관', desc: '전시실에 보물 열 가지를 모두 전시하기', reward: 80 },
   { id: 'lighthouse', name: '다시 켜진 등대', desc: '등대를 끝까지 고쳐 불을 밝히기', reward: 100 },
   { id: 'nightRun', name: '밤 썰물의 귀환', desc: '밤 썰물 탐험에서 보물을 들고 무사히 돌아오기', reward: 40 },
 ];
@@ -1523,7 +1516,7 @@ function cleanSave(raw, strict) {
   }
   if (raw.ach !== undefined) {
     if (!isObj(raw.ach)) bad('도전 과제 정보가 올바르지 않아요');
-    else for (const k of Object.keys(raw.ach)) { if (!ACH.some(a => a.id === k)) { bad('존재하지 않는 도전 과제 ID가 있어요'); continue; } if (raw.ach[k]) out.ach[k] = 1; }
+    else for (const k of Object.keys(raw.ach)) { if (k !== 'hallFull' && !ACH.some(a => a.id === k)) { bad('존재하지 않는 도전 과제 ID가 있어요'); continue; } if (raw.ach[k]) out.ach[k] = 1; }
   }
   out.streak = num(raw.streak, 0, 1e6, 0, '연속 기록 값이 올바르지 않아요');
   if (raw.tabFails !== undefined) out.tabFails = num(raw.tabFails, 0, 1e6, 0, '석판 기록이 올바르지 않아요');
@@ -1541,7 +1534,7 @@ function cleanSave(raw, strict) {
       if (bool(raw.fac[k], false, '항구 시설 정보가 올바르지 않아요')) out.fac[k] = true;
     }
   }
-  // 전시실(전시한 보물 종류)·등대 복원 단계·밤 썰물 선택
+  // 기존 전시 기록과 약속된 보상 일수를 읽어 예전 저장과 호환한다.
   if (raw.hall !== undefined) {
     if (!isObj(raw.hall)) bad('전시실 정보가 올바르지 않아요');
     else for (const k of Object.keys(raw.hall)) {
@@ -1552,7 +1545,7 @@ function cleanSave(raw, strict) {
   out.hallSeen = bool(raw.hallSeen, false, '전시실 표시가 올바르지 않아요');
   for (const t of Object.keys(out.hall)) {
     const stored = raw.hallPension && Object.hasOwn(raw.hallPension, t) ? raw.hallPension[t] : undefined;
-    out.hallPension[t] = num(stored, 0, 10, 10, '전시 연금 잔여 일수가 올바르지 않아요');
+    out.hallPension[t] = num(stored, 0, LEGACY_DISPLAY_DAYS, LEGACY_DISPLAY_DAYS, '전시 연금 잔여 일수가 올바르지 않아요');
   }
   out.light = num(raw.light, 0, LIGHT_STAGES.length, 0, '등대 복원 단계가 올바르지 않아요');
   out.lightStarted = out.ended && (out.light > 0 || bool(raw.lightStarted, false, '등대 시작 표시가 올바르지 않아요'));
@@ -1572,9 +1565,9 @@ function cleanSave(raw, strict) {
   if (raw.specialHall !== undefined) {
     if (!isObj(raw.specialHall)) bad('특별 전시 정보가 올바르지 않아요');
     else for (const id of Object.keys(raw.specialHall)) {
-      if (!SPECIAL_EXHIBITS.some(exhibit => exhibit.id === id)) { bad('알 수 없는 특별 전시품이 있어요'); continue; }
+      if (!SPECIAL_FINDS.some(find => find.id === id)) { bad('알 수 없는 특별 전시품이 있어요'); continue; }
       if (!bool(raw.specialHall[id], false, '특별 전시 정보가 올바르지 않아요')) continue;
-      if (hasSpecialExhibit(id, out)) out.specialHall[id] = true;
+      if (hasSpecialFind(id, out)) out.specialHall[id] = true;
       else bad('아직 발견하지 않은 특별 전시품이 있어요');
     }
   }
@@ -4374,7 +4367,6 @@ function buildPort() {
     const f = FAC[k];
     addInter({ x: f.x, z: f.z, y: Y, r: 1.9, name: f.name, act: f.act, prio: 2, mk: f.mk, use: () => openPort(f.tab) });
   }
-  withOwnRng(3838, () => buildHall(Y));
   withOwnRng(3944, () => buildLighthouseParts(LY, LX, LZ, LS));
   LATE_WORLD.push(() => addInter({
     x: LX, z: approachZ, y: groundAt(LX, approachZ), r: approachRadius, name: '낡은 등대', prio: 3,
@@ -4419,133 +4411,44 @@ function buildHarborArchive(y) {
   addInter({x,z:front,y,r:1.48,name:'오래된 항구 기록',act:'기록 열기',prio:2,
     mk:[x,y+1.21,z+.44],use:()=>openPort('record')});
 }
-/* ---------- 항구 전시실: 도감의 기본 보물 다섯 가지를 모두 찾으면 지어짐 ----------
-   지어진 뒤에는 진열대 열 개(앞줄 보물, 뒷줄 희귀 변종)에
-   전시한 보물이 천천히 돌며 빛나고 10일 동안 전시 연금을 지급함 */
-const HALL = { x: 3.65, z: 33.1 };
-// 이번에 늘어난 충돌·상호작용(전시실·등대)은 나무·보물 자리를 다 정한 뒤에 넣음.
-// 먼저 넣으면 나무와 보물 자리를 고르는 무작위 순서가 밀려 섬 전체 배치가 바뀜 (진행 중이던 저장의 하루와도 어긋남)
+// 기록대와 등대 상호작용은 기존 나무와 보물 자리를 정한 뒤에 등록한다.
 const LATE_WORLD = [];
 function lateWorld() {
   for (const f of LATE_WORLD) f();
   LATE_WORLD.length = 0;
-  buildNav(HALL.x - 3, HALL.x + 3, HALL.z - 2.5, HALL.z + 2.5);   // 전시실 자리의 길찾기 칸만 다시 계산
   buildNav(ARCHIVE.x - 2, ARCHIVE.x + 2, ARCHIVE.z - 2, ARCHIVE.z + 2);
 }
-const SPECIAL_EXHIBITS = [
+const SPECIAL_FINDS = [
   { id: 'cave', name: '월광 나침반', desc: '등대의 빛이 비춘 밤 동굴에서 발견한 나침반.', color: 0x9adeef },
   { id: 'voyage', name: '선장의 항로패', desc: '난파선 선원의 마지막 항해 끝에서 발견한 항로패.', color: 0xd4ab60 },
 ];
-const SPECIAL_MESH = {};
-const SPECIAL_DISPLAY = {};
-function hasSpecialExhibit(id, save = SAVE) {
+function hasSpecialFind(id, save = SAVE) {
   return id === 'cave' ? save.caveTreasure : id === 'voyage' && save.voyage >= VOYAGE_PAGES.length;
 }
-function specialExhibitMesh(id) {
-  if (SPECIAL_MESH[id]) return SPECIAL_MESH[id];
-  const key = 'tmpExhibit' + id;
-  if (id === 'cave') {
-    cyl(key,0,0,0,.30,.34,.11,0x558994,{seg:16,grad:.05});
-    cyl(key,0,.10,0,.25,.26,.03,0xa9ebff,{seg:16,grad:0});
-    blk(key,0,.13,0,.065,.023,.38,0x1c5564,{r:.02,ry:.6,grad:0});
-    ball(key,0,.18,-.08,.08,0xd2faff,{sub:1,flat:.5,grad:0});
-  } else {
-    blk(key,0,0,0,.49,.09,.39,0x916236,{r:.045,grad:.1});
-    blk(key,0,.09,0,.39,.03,.29,0xe7ba60,{r:.03,grad:0});
-    for (const z of [-.10,.10]) ball(key,0,.14,z,.04,0x335e5e,{sub:1,grad:0});
-    blk(key,0,.12,0,.045,.02,.16,0x335e5e,{r:.01,ry:-.75,grad:0});
-  }
-  return SPECIAL_MESH[id] = makeMesh(takeGeo(key));
+function specialFindCards() {
+  const finds = SPECIAL_FINDS.filter(find => hasSpecialFind(find.id));
+  if (!finds.length) return '';
+  return `<h3>특별 발견</h3><div class="dex">${finds.map(find =>
+    `<div class="dx"><span class="gem" style="--c:${hexCss(find.color)}"></span><b>${find.name}</b><span>${find.desc}</span></div>`
+  ).join('')}</div>`;
 }
-function buildSpecialDisplays(Y) {
-  SPECIAL_EXHIBITS.forEach((item,i) => {
-    const x = HALL.x + (i ? 1.32 : -1.32), z = HALL.z + .88, y = Y + 1.18;
-    cyl('tmpHall',x,Y+.13,z,.13,.17,1.01,0x506d73,{seg:10,grad:.15});
-    cyl('tmpHall',x,Y+1.14,z,.23,.23,.04,0xe4c777,{seg:12,grad:0});
-    const model = addDyn(specialExhibitMesh(item.id),{mat:'actor',cast:false});
-    const glow = addGlow(x,y+.22,z,1.15,item.color,0,{shape:1,pulse:.2});
-    model.vis = false;
-    SPECIAL_DISPLAY[item.id] = {model,glow,x,y,z};
-  });
-  WORLD.anim.push((dt,t) => {
-    for (const {model,x,y,z} of Object.values(SPECIAL_DISPLAY)) if (model.vis) {
-      M4.compose(model.m,x,y+.12+.04*Math.sin(t*1.8),z,0,t*.7,0);
-    }
-  });
+function moonCompassMesh() {
+  const key = 'tmpMoonCompass';
+  cyl(key, 0, 0, 0, .30, .34, .11, 0x558994, { seg: 16, grad: .05 });
+  cyl(key, 0, .10, 0, .25, .26, .03, 0xa9ebff, { seg: 16, grad: 0 });
+  blk(key, 0, .13, 0, .065, .023, .38, 0x1c5564, { r: .02, ry: .6, grad: 0 });
+  ball(key, 0, .18, -.08, .08, 0xd2faff, { sub: 1, flat: .5, grad: 0 });
+  return makeMesh(takeGeo(key));
 }
-function syncSpecialDisplays(open) {
-  for (const {id} of SPECIAL_EXHIBITS) {
-    const {model,glow,x,y,z} = SPECIAL_DISPLAY[id];
-    model.vis = open && !CH.on && !!SAVE.specialHall[id];
-    glow.a = model.vis ? .55 : 0;
-    if (model.vis) M4.compose(model.m,x,y+.12,z,0,0,0);
-  }
-}
-function displaySpecialExhibit(id) {
-  const exhibit = SPECIAL_EXHIBITS.find(item => item.id === id);
-  if (!exhibit || CH.on || SAVE_IO.readonly || !hallOpen() || !hasSpecialExhibit(id) || SAVE.specialHall[id]) return false;
-  SAVE.specialHall[id] = true;
-  syncSpecialDisplays(true);
-  requestSave(); SND.achieve();
-  toast(`🏛 ${josa(exhibit.name,'을/를')} 전시했어요`,'good',3);
-  return true;
-}
-function specialExhibitCards() {
-  if (CH.on || !SPECIAL_EXHIBITS.some(item => hasSpecialExhibit(item.id))) return '';
-  const rows = SPECIAL_EXHIBITS.filter(item => hasSpecialExhibit(item.id)).map(item => {
-    const displayed = SAVE.specialHall[item.id];
-    return `<div class="up hallslot${displayed ? ' owned' : ''}"><h4><span class="gem" style="--c:${hexCss(item.color)}"></span> ${item.name}</h4>
-      <p class="ds">${item.desc}</p>${displayed ? '<button class="btn small" disabled>전시 중 ✓</button>' : `<button class="btn small primary" data-exhibit="${item.id}">전시하기</button>`}</div>`;
-  });
-  return '<h3>특별 전시</h3><div class="ups shop">' + rows.join('') + '</div>';
-}
-const HALL_SLOTS = [...BASE_TYPES, ...RARE_TYPES];
-const HALL_PARTS = { built: null, sign: null, collision: null, items: {}, glows: {} };
-// 앞(+z, 광장·카메라 쪽) 줄에 보물 다섯, 뒷줄에 조금 더 높은 받침의 희귀 변종 다섯
-function hallSlotPos(i) { const row = i < 5 ? 0 : 1, col = i % 5; return [HALL.x - 1.36 + col * 0.68, HALL.z + 0.45 - row * 0.8]; }
-function buildHall(Y) {
-  const { x, z } = HALL;
-  blk('tmpHall', x, Y - 0.35, z, 3.7, 0.5, 2.2, C.stone2, { r: 0.06, grad: 0.1 });
-  LATE_WORLD.push(() => {
-    HALL_PARTS.collision = colBox(x, z, 1.87, 1.12, 0, Y + 1.6);
-    HALL_PARTS.collision.on = hallOpen();
-  });
-  // 지어진 전시실: 진열대 열 개, 뒤쪽 낮은 벽과 기둥 두 개, 팻말을 단 들보 (앞은 트여 있어 진열품이 잘 보임)
-  for (let i = 0; i < 10; i++) {
-    const [px, pz] = hallSlotPos(i), rare = i >= 5;
-    cyl('tmpHall', px, Y + 0.12, pz, 0.16, 0.2, rare ? 0.78 : 0.62, rare ? 0xe9e1cf : C.stone, { seg: 10, grad: 0.15 });
-    cyl('tmpHall', px, Y + (rare ? 0.9 : 0.74), pz, 0.23, 0.23, 0.06, rare ? C.gold : C.woodD, { seg: 12, grad: 0, jit: 0 });
-  }
-  blk('tmpHall', x, Y + 0.12, z - 0.92, 3.6, 1.5, 0.2, C.plaster, { grad: 0.2 });
-  blk('tmpHall', x, Y + 1.62, z - 0.92, 3.8, 0.14, 0.36, C.teal, { r: 0.03, grad: 0 });
-  for (const sx of [-1, 1]) cyl('tmpHall', x + sx * 1.75, Y + 0.12, z - 0.92, 0.11, 0.13, 2.3, C.woodD, { seg: 8 });
-  blk('tmpHall', x, Y + 2.3, z - 0.92, 3.8, 0.2, 0.24, C.wood, { r: 0.04 });
-  for (const sx of [-1, 1]) cyl('tmpHall', x + sx * 1.75, Y + 0.12, z + 0.95, 0.09, 0.11, 0.8, C.woodD, { seg: 8 });
-  buildSpecialDisplays(Y);
-  HALL_PARTS.built = dynFrom('tmpHall', { mat: 'plain' });
-  HALL_PARTS.sign = plaque('항구 전시실', x, Y + 2.7, z - 0.78, 0, 0.95);
-  HALL_PARTS.y = Y;
-  LATE_WORLD.push(() => addInter({ x, z: z + 1.85, y: Y, r: 1.8, name: '항구 전시실', on: hallOpen, act: '전시하기', prio: 1, mk: [x, Y + 3.1, z - 0.8], use: () => openPort('hall') }));
-  WORLD.sync.push(syncHall);
-  WORLD.anim.push((dt, t) => {
-    if (!HALL_PARTS.built.vis || !HALL_PARTS.items.shell) return;
-    let i = 0;
-    for (const k of HALL_SLOTS) { const d = HALL_PARTS.items[k]; if (d.vis) M4.compose(d.m, d.base[0], d.base[1] + 0.06 * Math.sin(t * 1.3 + i), d.base[2], 0, t * 0.6 + i, 0, 0.8, 0.8, 0.8); i++; }
-  });
-}
-function hallOpen() { return BASE_TYPES.every(t => SAVE.dex[t]); }
-function hallCount() { return HALL_SLOTS.filter(t => SAVE.hall && SAVE.hall[t]).length; }
-const HALL_DAILY = 10, HALL_DAYS = 10;
-function hallDays(t) { return SAVE.hall[t] ? (SAVE.hallPension?.[t] ?? HALL_DAYS) : 0; }
-function payHallPension() {
+const LEGACY_DISPLAY_DAILY = 10, LEGACY_DISPLAY_DAYS = 10;
+function payLegacyDisplayRewards() {
   if (CH.on || SAVE_IO.readonly) return 0;
   let total = 0;
-  SAVE.hallPension ||= {};
-  for (const t of HALL_SLOTS) {
-    const left = hallDays(t);
-    if (left <= 0) continue;
-    SAVE.hallPension[t] = left - 1;
-    total += HALL_DAILY;
+  for (const type of Object.keys(SAVE.hall)) {
+    const days = SAVE.hallPension[type] ?? LEGACY_DISPLAY_DAYS;
+    if (days <= 0) continue;
+    SAVE.hallPension[type] = days - 1;
+    total += LEGACY_DISPLAY_DAILY;
   }
   if (total) addGold(total);
   return total;
@@ -4553,55 +4456,6 @@ function payHallPension() {
 // 소금 창고와 오늘의 시세는 기존 판매가 규칙을 유지한다.
 function saleBonus(total) {
   return { salt: hasFac('salt') ? Math.round(total * 0.1) : 0 };
-}
-// 진열대 위 보물 모형 (전시하면 보임). 항구를 지을 때는 보물 모형이 아직 없어서 처음 맞출 때 만듦
-function hallItems() {
-  if (HALL_PARTS.items.shell) return;
-  for (let i = 0; i < 10; i++) {
-    const t = HALL_SLOTS[i], [px, pz] = hallSlotPos(i), top = HALL_PARTS.y + (i >= 5 ? 0.96 : 0.8);
-    const d = addDyn(ITEM_MESH[t], { mat: 'actor', cast: false }); d.vis = false; d.base = [px, top, pz];
-    HALL_PARTS.items[t] = d;
-    HALL_PARTS.glows[t] = addGlow(px, top + 0.3, pz, i >= 5 ? 1.2 : 0.95, TREASURES[t].color, 0, { shape: 1, pulse: 0.3 });
-  }
-}
-function syncHall() {
-  hallItems();
-  const open = hallOpen();
-  HALL_PARTS.built.vis = open; HALL_PARTS.sign.vis = open;
-  syncSpecialDisplays(open);
-  if (HALL_PARTS.collision && HALL_PARTS.collision.on !== open) {
-    HALL_PARTS.collision.on = open;
-    buildNav(HALL.x - 3, HALL.x + 3, HALL.z - 2.5, HALL.z + 2.5);
-  }
-  for (const t of HALL_SLOTS) {
-    const on = open && !!SAVE.hall[t], d = HALL_PARTS.items[t];
-    d.vis = on; if (on) M4.compose(d.m, d.base[0], d.base[1], d.base[2], 0, 0, 0, 0.8, 0.8, 0.8);
-    HALL_PARTS.glows[t].a = on ? (TREASURES[t].rare ? 0.75 : 0.5) : 0;
-  }
-}
-// 가방에서 하나를 꺼내 전시 (팔지 않음). 전시실이 열려 있고 아직 그 종류를 전시하지 않았을 때만
-function displayTreasure(type) {
-  if (CH.on || SAVE_IO.readonly || !hallOpen() || SAVE.hall[type] || !HALL_SLOTS.includes(type)) return false;
-  const i = G.bag.findIndex(b => b.type === type);
-  if (i < 0) return false;
-  Bag.removeAt([i]);
-  SAVE.hall[type] = true;
-  (SAVE.hallPension ||= {})[type] = HALL_DAYS;
-  syncHall(); renderBag(true);
-  const T = TREASURES[type];
-  toast(`🏛 ${josa(T.name, '을/를')} 전시했어요 · 하루 10 G씩 10일 지급`, 'good', 3);
-  SND.achieve();
-  if (hallCount() >= 10) award('hallFull');
-  requestSave();
-  return true;
-}
-// 전시실이 처음 지어졌을 때 한 번 알림 (항구에 있을 때)
-function hallAnnounce() {
-  if (!hallOpen() || SAVE.hallSeen || !(G.inPort || atPort(P.x, P.z))) return;   // 돌아오는 순간에는 G.inPort가 아직 바뀌기 전
-  SAVE.hallSeen = true;
-  syncHall();
-  later(1.2, () => toast('🏛 전시실이 문을 열었어요! 보물을 전시하면 하루 10 G씩 10일 동안 받아요.', 'ach', 5));
-  requestSave();
 }
 /* ---------- 등대 복원 (엔딩 뒤): 네 단계에 걸쳐 돈을 들여 고치면 밤 썰물 탐험이 열림 ----------
    1단계부터 비계가 서고, 2단계에 등롱이 늘 은은하게 빛나고, 3단계에 렌즈가 돌고, 4단계에 불이 켜져 빛줄기가 바다를 훑음 */
@@ -4694,7 +4548,7 @@ function takeCaveExhibit() {
   if (!nightCaveOpen() || SAVE.caveTreasure || SAVE_IO.readonly) return;
   SAVE.caveTreasure = true;
   requestSave(); SND.achieve();
-  const readCompass = () => openReader('월광 나침반', '등대 불빛을 오래 받아 푸르게 빛나는 나침반이다. 뒷면에는 “불빛이 돌아오는 곳이 우리의 항구”라고 새겨져 있다.\n\n항구 전시실에서 전시할 수 있어요.');
+  const readCompass = () => openReader('월광 나침반', '등대 불빛을 오래 받아 푸르게 빛나는 나침반이다. 뒷면에는 “불빛이 돌아오는 곳이 우리의 항구”라고 새겨져 있다.\n\n항구 기록대의 보물 도감에서 볼 수 있어요.');
   if (!playMilestoneScene('compass', readCompass)) readCompass();
 }
 function buildNightCave() {
@@ -4737,7 +4591,7 @@ function buildNightCave() {
   c.markX = mx; c.markZ = mz; c.markY = my;
   c.markGlow = addGlow(mx,my,mz,2.1,0x9ff3ff,0,{shape:1});
   const [x,z] = cavePoint(0,2.9), y = groundAt(x,z);
-  const model = addDyn(specialExhibitMesh('cave'),{mat:'actor',cast:false});
+  const model = addDyn(moonCompassMesh(),{mat:'actor',cast:false});
   model.vis = false;
   const glow = addGlow(x,y+.6,z,1.75,0x9ff3ff,0,{shape:1,pulse:.24});
   const visible = () => nightCaveOpen() && !SAVE.caveTreasure;
@@ -7089,7 +6943,6 @@ function pickupItem(it, fromDig = false) {
   if (firstFind) later(0.6, () => toast(`📖 도감에 새 보물: ${T.name}`, 'info', 2.6, 'dex', T.name));
   if (it.spring) award('springFind');
   if (T.rare) rareFound(it, T);
-  if (firstFind && !T.rare && hallOpen()) syncHall();
   if (fromDig) P.pick = 1;
   else {
     it.handPickup = true;
@@ -7181,7 +7034,6 @@ function startExpedition(atSpawn = true) {
     if (MARKET) later(3.4, () => { const T = TREASURES[MARKET.type]; toast(`📈 오늘의 시세: ${T.name} ${T.value} → ${priceOf(MARKET.type)} G`, 'good', 4.2); tut('market'); });
   }
   if (SAVE.ach.firstSale && !SAVE.req) newRequest();
-  hallAnnounce();
 }
 // 하루를 마칠 때 공통 처리 (rescued: 구조로 끝났는지). 보물을 하나라도 주운 날만 연속 기록에 셈
 function endDay(rescued, fromHarbor = false) {
@@ -7192,7 +7044,7 @@ function endDay(rescued, fromHarbor = false) {
   SAVE.pendingBag = G.bag.map(b => b.type);   // 가방은 그대로 다음 날로
   SAVE.shop = null;   // 오늘 산 물건은 오늘만
   delete SAVE.signal;
-  G.lastPension = payHallPension();
+  G.lastDisplayReward = payLegacyDisplayRewards();
   G.lastHarborGoal = fromHarbor && !rescued && !SAVE_IO.readonly ? harborGoal() : null;
   if (G.lastHarborGoal?.met) addGold(G.lastHarborGoal.reward);
   SAVE.stats.exp++;
@@ -7532,7 +7384,6 @@ function onReturnPort() {
   if (n && G.time > CFG.T) award('closeCall');
   if (n && WEATHER.id === 'storm') award('stormRun');
   if (n && G.night) award('nightRun');
-  hallAnnounce();
   requestSave();   // 돌아온 직후의 위치·시각·가방·남은 보물을 저장 (가방은 항구 확정 가방으로)
   if (n) tut('port');
 }
@@ -7578,7 +7429,7 @@ function voyageCard() {
   const pages = VOYAGE_PAGES.slice(0,SAVE.voyage);
   return `<h3>선원의 마지막 항해 <small class="sub2">${pages.length}/${VOYAGE_PAGES.length}</small></h3>
     <div class="stat storylog">${pages.length ? pages.map(page => `<details><summary>${page.title}</summary><p>${page.text}</p></details>`).join('') : '<p>동쪽 난파선의 항해일지에서 첫 단서를 찾아보세요.</p>'}
-    ${pages.length === VOYAGE_PAGES.length ? '<p>선장의 항로패를 찾았어요. 항구 전시실에서 전시할 수 있어요.</p>' : ''}</div>`;
+    ${pages.length === VOYAGE_PAGES.length ? '<p>선장의 항로패를 찾았어요. 항구 기록대의 보물 도감에서 볼 수 있어요.</p>' : ''}</div>`;
 }
 function voyageMarkVisible(mark) { return !CH.on && !G.dayDone && SAVE.voyage === mark.page; }
 function inspectVoyageMark(mark) {
@@ -7589,7 +7440,7 @@ function inspectVoyageMark(mark) {
   openReader('선원의 마지막 항해 · ' + page.title, page.text);
   if (SAVE.voyage === VOYAGE_PAGES.length) {
     SND.achieve();
-    toast('선장의 항로패 발견 · 항구 전시실에서 전시할 수 있어요','good',4);
+    toast('선장의 항로패 발견 · 보물 도감에 기록했어요','good',4);
   }
 }
 function buildVoyageMarks() {
@@ -8382,7 +8233,7 @@ function guidePages() {
         <div class="gReturn"><span class="tag st-mid">빠듯</span><span>화면 위쪽에 이 표시가 뜨면 돌아갈 때예요.</span></div>
         <details class="gDetail"><summary>항구 이용과 주의할 점</summary><ul>
           <li>사무소에서 보물을 팔고, 공방에서 장비와 물건을 사요. 의뢰는 게시판에서 전달해요.</li>
-          <li>전시실은 전시·도감, 부두 끝 왼쪽 기록대는 탐험 기록을 보여 줘요. 전시품마다 하루 10 G씩 10일 받아요.</li>
+          <li>의뢰 게시판 왼쪽의 항구 기록대에서 탐험 기록과 보물 도감을 볼 수 있어요.</li>
           <li>보물을 하나 이상 줍고 만조까지 1분 30초 이하일 때 항구에 있으면, 물때 표시 아래 <b>오늘 탐험 마치기</b> 버튼이 떠요. 둘째 날부터 항구 보너스에 도전할 수 있어요.</li>
           <li>밀물에 갇혀 구조되면 기본 구조비는 소지금의 절반이에요. 일반 보물과 장비는 남지만, 유리 유물은 깨져요.</li>
           <li>낮은 길은 먼저 잠겨요. 날마다 물때·날씨·보물 위치가 바뀌니 귀환 여유를 확인하세요.</li>
@@ -9385,11 +9236,11 @@ function updateCoastMarker() {
 }
 const PORT_WINDOWS = {
   settle:'⚓ 보물 판매',upgrade:'🛠 업그레이드 & 상점',shop:'🛠 업그레이드 & 상점',request:'📌 의뢰 게시판',
-  dex:'🏛 항구 전시실',hall:'🏛 항구 전시실',light:'🗼 낡은 등대',record:'📖 오래된 항구 기록',coastbox:'🧰 해변 보관함',
+  dex:'📖 오래된 항구 기록',light:'🗼 낡은 등대',record:'📖 오래된 항구 기록',coastbox:'🧰 해변 보관함',
 };
 function facilityTabs(tab) {
   if (tab === 'upgrade' || tab === 'shop') return [['upgrade','업그레이드'],['shop','상점']];
-  if (tab === 'hall' || tab === 'dex') return [['hall','전시'],['dex','도감']];
+  if (!CH.on && (tab === 'record' || tab === 'dex')) return [['record','탐험 기록'],['dex','보물 도감']];
   return [];
 }
 function openPort(tab = 'settle') {
@@ -9436,7 +9287,7 @@ function renderPort() {
   let h = '', f = '';
   if (PM_TAB === 'coastbox') {
     h = coastBoxCard();
-  } else if (CH.on && ['upgrade', 'shop', 'request', 'hall', 'dex', 'light'].includes(PM_TAB)) {
+  } else if (CH.on && ['upgrade', 'shop', 'request', 'dex', 'light'].includes(PM_TAB)) {
     h = `<div class="reqcard empty"><b>🏝 오늘의 섬 도전 중</b><p>도전에서는 장비와 항구 시설을 이용할 수 없어요. 보물 판매 창구에서 보물을 팔아 기록을 올리세요.</p></div>`;
   } else if (PM_TAB === 'settle') {
     if (PM_SOLD) {
@@ -9487,36 +9338,17 @@ function renderPort() {
     h += `<p class="note">게시판에 직접 전달하면 보물값과 의뢰 보상을 받아요. 완료한 의뢰: <b>${SAVE.reqDone || 0}</b>개.</p>`;
     h = signalCard() + h;
   } else if (PM_TAB === 'dex') {
-    // 도감: 보물 다섯 가지 + 희귀 변종 다섯 가지. 보물 다섯 가지를 모두 찾으면 항구에 전시실이 지어짐
     const nb = BASE_TYPES.filter(t => SAVE.dex[t]).length, nr = RARE_TYPES.filter(t => SAVE.dex[t]).length;
     const card = t => {
       const T = TREASURES[t], n = SAVE.dex[t] || 0, rare = !!T.rare;
       if (!n) return `<div class="dx unk${rare ? ' rare' : ''}"><span class="gem" style="--c:#9a9282"></span><b>???</b><span>${rare ? '아주 드물게 나오는 희귀 변종' : '아직 찾지 못했어요'}</span><small>${rare ? (SAVE.dex[T.base] ? DEX_WHERE[t] : '소문만 무성해요') : '소문: ' + DEX_WHERE[t]}</small></div>`;
-      return `<div class="dx${rare ? ' rare' : ''}"><span class="gem" style="--c:${hexCss(T.color)}"></span><b>${rare ? '✨ ' : ''}${T.name}</b><span>${T.size}칸 · ${T.value} G${isHot(t) ? ` (오늘 ${priceOf(t)} G 📈)` : ''} · 주운 수 ${n}</span><small>${DEX_WHERE[t]}${SAVE.hall[t] ? ' · 🏛 전시 중' : ''}</small></div>`;
+      return `<div class="dx${rare ? ' rare' : ''}"><span class="gem" style="--c:${hexCss(T.color)}"></span><b>${rare ? '✨ ' : ''}${T.name}</b><span>${T.size}칸 · ${T.value} G${isHot(t) ? ` (오늘 ${priceOf(t)} G 📈)` : ''} · 주운 수 ${n}</span><small>${DEX_WHERE[t]}</small></div>`;
     };
     h = `<p class="dexsum">도감 <b>${nb + nr}/10</b> · 보물 ${nb}/5 · 희귀 변종 ${nr}/5</p>
-      <div class="dexgoal ${hallOpen() ? 'ok' : ''}">${hallOpen() ? `🏛 전시 ${hallCount()}/10` : `🏗 보물 다섯 가지를 찾으면 전시실이 지어져요 (${nb}/5)`}</div>
       <h3>보물</h3><div class="dex">${BASE_TYPES.map(card).join('')}</div>
       <h3>✨ 희귀 변종</h3><div class="dex">${RARE_TYPES.map(card).join('')}</div>
+      ${specialFindCards()}
       <p class="note">희귀 변종은 같은 보물 자리에서 아주 드물게 대신 나와요 (약 1.5%). 모래 둔덕을 파면 두 배, 표류 상자는 세 배, 밤 썰물에는 세 배 자주 나와요. 멀리서도 보이는 빛기둥으로 알 수 있어요.</p>`;
-  } else if (PM_TAB === 'hall') {
-    // 열 개 진열대: 종류별로 전시한 뒤 최대 10일간 연금을 받는다.
-    if (!hallOpen()) {
-      const nb = BASE_TYPES.filter(t => SAVE.dex[t]).length;
-      h = `<div class="reqcard empty"><b>🏗 전시실 개방 조건</b><p>도감에 <b>보물 다섯 가지</b>를 모두 올리면 전시실이 지어져요.</p><p class="hint2">지금 ${nb}/5 — ${BASE_TYPES.filter(t => !SAVE.dex[t]).map(t => '???').join(' · ') || '모두 찾았어요'}</p></div>
-        <p class="note">전시한 보물마다 하루 10 G씩 10일 동안 받아요.</p>`;
-    } else {
-      const slot = t => {
-        const T = TREASURES[t], on = !!SAVE.hall[t], have = G.bag.some(b => b.type === t), known = !!SAVE.dex[t], left = hallDays(t);
-        const btn = on ? '<button class="btn small" disabled>전시 중 ✓</button>' : have ? `<button class="btn small primary" data-show="${t}">전시하기</button>` : `<button class="btn small" disabled>${known ? '가방에 넣어 오세요' : '아직 못 찾음'}</button>`;
-        return `<div class="up hallslot${on ? ' owned' : ''}${T.rare ? ' rare' : ''}"><h4><span class="gem" style="--c:${known ? hexCss(T.color) : '#9a9282'}"></span> ${known ? T.name : '???'}</h4><div class="cmp">${on ? (left ? `10 G/일 · ${left}일 남음` : '연금 지급 종료') : known ? `기본 판매가 ${T.value} G · 오늘 ${priceOf(t)} G` : '미발견'}</div>${btn}</div>`;
-      };
-      h = `<div class="feebox ok">🏛 전시 <b>${hallCount()}/10</b> · 다음 날 지급 <b>+${HALL_SLOTS.filter(t => hallDays(t) > 0).length * HALL_DAILY} G</b></div>
-        <h3>보물</h3><div class="ups shop">${BASE_TYPES.map(slot).join('')}</div>
-        <h3>✨ 희귀 변종</h3><div class="ups shop">${RARE_TYPES.map(slot).join('')}</div>
-        ${specialExhibitCards()}
-        <p class="note">전시품 하나당 하루 10 G씩 최대 10일. 탐험을 마쳐 다음 날로 넘어갈 때 자동 지급돼요. 종류마다 하나만 전시할 수 있고, 다시 꺼낼 수 없어요.</p>`;
-    }
   } else if (PM_TAB === 'light') {
     // 등대 복원 (엔딩 뒤) · 다 고치면 밤 썰물 고르기
     const L = SAVE.light | 0;
@@ -9548,9 +9380,6 @@ function renderPort() {
   body.innerHTML = h; foot.innerHTML = f;
   body.querySelectorAll('[data-coast]').forEach(b => b.onclick = () => {
     if (useCoastButton(b.dataset.coast, Number(b.dataset.index))) { renderBag(true); renderPort(); }
-  });
-  body.querySelectorAll('[data-exhibit]').forEach(button => button.onclick = () => {
-    if (displaySpecialExhibit(button.dataset.exhibit)) renderPort();
   });
   const signalButton = $('pmSignal');
   if (signalButton) signalButton.onclick = () => { if (useSignalBoard()) renderPort(); };
@@ -9597,7 +9426,6 @@ function renderPort() {
     renderPort(); renderBag(true);
     const card = $('fac_' + id); if (card) card.classList.add('bought');
   });
-  body.querySelectorAll('[data-show]').forEach(btn => btn.onclick = () => { if (displayTreasure(btn.dataset.show)) { renderPort(); renderBag(true); } });
   const reopenLight = () => openPort('light');
   body.querySelectorAll('[data-light]').forEach(btn => btn.onclick = () => {
     if (!buyLightStage()) return;
@@ -9649,7 +9477,7 @@ function showResult(o) {
   if (goal) body.insertAdjacentHTML('beforeend', goal.met
     ? `<p class="feebox ok">⚓ ${goal.name} 완료 · 항구 보너스 <b>+${goal.reward} G</b></p>`
     : `<p class="note">항구 보너스 미완료 · ${goal.task} (${goal.count}/${goal.target}${goal.unit})</p>`);
-  if (G.lastPension) body.insertAdjacentHTML('beforeend', `<p class="feebox ok">🏛 전시 연금 +${G.lastPension} G 지급</p>`);
+  if (G.lastDisplayReward) body.insertAdjacentHTML('beforeend', `<p class="feebox ok">이전 전시 보상 +${G.lastDisplayReward} G 지급</p>`);
   $('btnResultOk').textContent = '항구에서 정산하기';
   $('btnResultOk').onclick = () => {
     $('result').classList.add('hidden');
@@ -9923,7 +9751,7 @@ function showEnding(first) {
    ========================================================= */
 const tick = () => new Promise(r => setTimeout(r, 0));
 // 빌드 식별자: 어떤 판을 실행 중인지 확인용 (화면 구석·설정·콘솔에만 표시, 저장·규칙과 무관)
-const BUILD_ID = 'Sinking Island build 2026-11-lighthouse-epilogue';
+const BUILD_ID = 'Sinking Island build 2026-11-harbor-records';
 async function boot() {
   const say = t => { $('loadText').textContent = t; };
   loadSettings();
@@ -10021,7 +9849,7 @@ function startGame(isNew) {
 }
 /* ---------- 오늘의 섬 도전 ----------
    날짜마다 정해진 섬(보물 자리·물때·날씨·시세)에서 물때 한 번 동안 정산한 금액으로 겨룸. 누구나 같은 날엔 같은 섬.
-   장비는 모두 1단계, 상점·시설·전시실·의뢰·도전 과제는 없음. 구조되면 기록이 절반.
+   장비는 모두 1단계, 상점·시설·의뢰·도전 과제는 없음. 구조되면 기록이 절반.
    본 게임 저장은 손대지 않음: 도전용 저장을 따로 만들고, 도전 중에는 저장소에 아무것도 쓰지 않음. 오늘 최고 기록만 설정(SET.daily)에 */
 function todayKey(d = new Date()) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function dailySeed(key) { let h = 2166136261; for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619); return h | 0; }
@@ -10032,7 +9860,7 @@ function dailySave(key, main) {
   s.up = { bag: 1, stamina: 1, wade: 1, dig: 1 };
   s.introSeen = true;
   s.tut = Object.assign({}, main.tut);   // 본 게임에서 본 안내는 다시 띄우지 않음
-  s.dex = Object.assign({}, main.dex);   // 도감은 보기만
+  s.dex = Object.assign({}, main.dex);   // 도전에서 발견한 보물은 별도로 기록
   return s;
 }
 function dailyBest(key = todayKey()) { const d = SET.daily; return d && d.d === key ? d.best | 0 : null; }
@@ -10951,12 +10779,12 @@ window.__SI = {
     rescue: why => rescue(why || 'deep'), rescueFee: () => rescueFee(), hasItem: id => hasItem(id), hasFac: id => hasFac(id), digTime: () => digTime(),
     crate: () => G.spots.find(q => q.kind === 'crate') || null, crabRocks: () => G.spots.filter(q => q.kind === 'rock' && q.out === 'crab' && !q.done), market: () => MARKET, marketOfDay: n => marketOfDay(n), priceOf: t => priceOf(t), weather: () => WEATHER.id,
     SHOP_ITEMS, FACILITIES, MM, hudOverlap: () => hudOverlap(), mmOverlap: () => mmOverlap(), cleanSave: (raw, strict) => cleanSave(raw, strict), endDay: r => endDay(!!r),
-    // 도감·희귀 변종·전시실·등대·밤 썰물·오늘의 섬 도전 확인용
-    CH, HALL, HALL_PARTS, HALL_SLOTS, LIGHT_PARTS, LIGHT_STAGES, BASE_TYPES, RARE_TYPES, VARIANT_OF, RARE_P, TREASURES,
-    hallOpen: () => hallOpen(), hallCount: () => hallCount(), hallDays: t => hallDays(t), saleBonus: n => saleBonus(n), displayTreasure: t => displayTreasure(t), syncWorld: () => syncWorld(),
+    // 도감·희귀 변종·등대·밤 썰물·오늘의 섬 도전 확인용
+    CH, LIGHT_PARTS, LIGHT_STAGES, BASE_TYPES, RARE_TYPES, VARIANT_OF, RARE_P, TREASURES,
+    saleBonus: n => saleBonus(n), syncWorld: () => syncWorld(),
     lightDone: () => lightDone(), buyLightStage: () => buyLightStage(), setNightPref: on => setNightPref(on), rareRoll: (x, z, salt) => rareRoll(x, z, salt), maybeRare: (t, x, z, salt, mul) => maybeRare(t, x, z, salt, mul),
     startDaily: () => startDaily(), exitDaily: () => exitDaily(), dailySave: (k, m) => dailySave(k, m), todayKey: d => todayKey(d), dailyBest: k => dailyBest(k), exportText: () => exportText(),
-    spawnTreasures: () => spawnTreasures(), spawnItem: (t, x, z) => spawnItem(t, x, z), hallAnnounce: () => hallAnnounce(), placeFeed: () => placeFeed(), phoneLayout: () => phoneLayout(),
+    spawnTreasures: () => spawnTreasures(), spawnItem: (t, x, z) => spawnItem(t, x, z), placeFeed: () => placeFeed(), phoneLayout: () => phoneLayout(),
   },
 };
 // 게시된 페이지가 새 버전으로 바뀌어도 진행이 이어지도록 (지원되는 환경에서만)
