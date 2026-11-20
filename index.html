@@ -1429,6 +1429,7 @@ function defaultSave() {
     stats: { exp: 0, earned: 0, rescues: 0, best: 0, items: 0, chalice: 0 },
     hall: {}, hallPension: {}, hallSeen: false, light: 0, lightStarted: false, night: false,
     mapPin: null, voyage: 0, caveTreasure: false, specialHall: {},
+    exploreFinds: { shallow: false, deep: false }, explorationLog: [], isletVisit: { day: -1, looted: 0 },
   };
 }
 let SAVE = defaultSave();
@@ -1582,6 +1583,31 @@ function cleanSave(raw, strict) {
   const relN = RELICS.filter(r => out.relics[r.id]).length;
   if ((out.placed && relN < 3) || (out.ended && !out.placed)) bad('유물·엔딩 진행 상태가 서로 맞지 않아요');
   if (out.light > 0 && !out.ended) { bad('등대 복원은 엔딩 뒤에만 할 수 있어요'); out.light = 0; }
+  if (raw.exploreFinds !== undefined) {
+    if (!isObj(raw.exploreFinds)) bad('동굴 탐험 기록이 올바르지 않아요');
+    else if (out.light === LIGHT_STAGES.length) for (const id of ['shallow','deep']) {
+      out.exploreFinds[id] = bool(raw.exploreFinds[id], false, '동굴 상자 기록이 올바르지 않아요');
+    }
+  }
+  if (raw.isletVisit !== undefined) {
+    const visit = raw.isletVisit;
+    if (!isObj(visit)) bad('외딴섬 방문 기록이 올바르지 않아요');
+    else if (out.light === LIGHT_STAGES.length) {
+      out.isletVisit.day = num(visit.day, -1, out.stats.exp, -1, '외딴섬 방문 날짜가 올바르지 않아요');
+      out.isletVisit.looted = num(visit.looted, 0, 3, 0, '외딴섬 상자 기록이 올바르지 않아요');
+    }
+  }
+  if (raw.explorationLog !== undefined) {
+    if (!Array.isArray(raw.explorationLog) || raw.explorationLog.length > JOURNAL_LIMIT) bad('탐험 일지 형식이 올바르지 않아요');
+    else for (const entry of raw.explorationLog) {
+      if (!Array.isArray(entry) || entry.length !== 3 || !Object.hasOwn(JOURNAL_NAMES, entry[0]) ||
+        !Number.isInteger(entry[1]) || entry[1] < 1 || entry[1] > out.stats.exp + 1 ||
+        !Number.isInteger(entry[2]) || entry[2] < 0 || entry[2] > SAVE_LIM.statMax) {
+        bad('탐험 일지 항목이 올바르지 않아요'); continue;
+      }
+      out.explorationLog.push(entry.slice());
+    }
+  }
   // 진행 중인 하루 상태: 형식·좌표·시각이 맞을 때만 받음 (아니면 그 부분만 빼고, 그날은 항구에서 다시 시작)
   const inIsle = (x, z) => isNum(x) && isNum(z) && x >= SAVE_LIM.xMin && x <= SAVE_LIM.xMax && z >= SAVE_LIM.zMin && z <= SAVE_LIM.zMax;
   const day = es => {
@@ -1601,6 +1627,7 @@ function cleanSave(raw, strict) {
       spots: (es.spots || []).map(v => (v ? 1 : 0)), sealOpen: !!es.sealOpen, scoped: !!es.scoped,
       earn: fin(es.earn, 0, SAVE_LIM.goldMax, undefined), picked: fin(es.picked, 0, 1000, undefined), stam: fin(es.stam, 0, 1000, undefined), ex: es.ex ? 1 : 0,
       night: es.night ? 1 : 0,
+      islet: es.islet === 1 && es.exp === out.isletVisit.day && es.clock === 1 && Math.hypot(es.x - ISLET.x, es.z - ISLET.z) < 13 ? 1 : 0,
     };
   };
   for (const k of ['expState', 'depState']) {
@@ -4508,6 +4535,268 @@ function syncLighthouse() {
   LIGHT_PARTS.scaf.vis = L >= 1 && L < LIGHT_STAGES.length;
   LIGHT_PARTS.lens.vis = L >= 3;
 }
+/* ---------- 동굴 안쪽과 외딴섬 ---------- */
+const ISLET = {
+  x: -43, z: 52, dockX: -43, dockZ: 56, portX: -4, portZ: 50.4,
+  tide: { T: 100, WL: -0.7, WH: 2.8 },
+  shore: { name: '외딴섬 모래길', x: -43, z: 49.2, h: 0.4 },
+};
+const DEEP_CAVE = { floor: 0.55, entryLimit: 0.8, chestV: 6.90 };
+const JOURNAL_LIMIT = 24;
+const JOURNAL_NAMES = {
+  rescue: '처음으로 구조선의 도움을 받았어요',
+  lighthouse: '복원한 등대에 불을 밝혔어요',
+  settlement: '최고 정산액을 경신했어요',
+  shallow: '밤 동굴의 입구 쪽 상자를 열었어요',
+  deep: '밤 동굴의 안쪽 방에서 보물을 찾았어요',
+  islet: '처음으로 외딴섬에 도착했어요',
+  compass: '월광 나침반을 발견했어요',
+};
+
+function noteExploration(id, value = 0) {
+  if (CH.on || SAVE_IO.readonly) return;
+  const entries = SAVE.explorationLog;
+  if (id !== 'settlement' && entries.some(e => e[0] === id)) return;
+  entries.push([id, SAVE.stats.exp + 1, value]);
+  if (entries.length > JOURNAL_LIMIT) {
+    const oldRecord = entries.findIndex(e => e[0] === 'settlement');
+    entries.splice(oldRecord < 0 ? 0 : oldRecord, 1);
+  }
+}
+function updateSettlementRecord() {
+  if (G.expEarn <= SAVE.stats.best) return;
+  SAVE.stats.best = G.expEarn;
+  noteExploration('settlement', G.expEarn);
+}
+function explorationJournal() {
+  const entries = SAVE.explorationLog.slice().reverse();
+  const legacy = [
+    ['rescue', SAVE.stats.rescues > 0],
+    ['lighthouse', lightDone()],
+    ['compass', SAVE.caveTreasure],
+    ['settlement', SAVE.stats.best > 0],
+  ].filter(([id, done]) => done && !entries.some(e => e[0] === id));
+  return `<h3>탐험 일지</h3><div class="stat storylog">${entries.map(([id, day, gold]) =>
+    `<p><b>${day}일째</b> · ${JOURNAL_NAMES[id]}${id === 'settlement' ? ` · ${gold} G` : ''}</p>`).join('')}
+    ${legacy.map(([id]) => `<p><b>이전 탐험</b> · ${JOURNAL_NAMES[id]}${id === 'settlement' ? ` · ${SAVE.stats.best} G` : ''}</p>`).join('')}
+    ${entries.length || legacy.length ? '' : '<p>첫 구조, 등대 점등과 최고 정산액을 날짜별로 기록해요.</p>'}</div>`;
+}
+function localCavePoint(x, z) {
+  const dx = x - NIGHT_CAVE.x, dz = z - NIGHT_CAVE.z;
+  const c = Math.cos(NIGHT_CAVE.ry), s = Math.sin(NIGHT_CAVE.ry);
+  return [dx * c - dz * s, dx * s + dz * c];
+}
+function inDeepCave(x, z) {
+  if (Math.abs(x - NIGHT_CAVE.x) > 9 || Math.abs(z - NIGHT_CAVE.z) > 9) return false;
+  const [u, v] = localCavePoint(x, z);
+  return Math.abs(u) < 1.7 && v > 4.94 && v < 8.58;
+}
+// 기존 보물 후보를 계산한 뒤 지형을 보강해 저장에 쓰인 자리 번호를 지킨다.
+function sculptExplorationTerrain() {
+  const { n, cell, x0, z0 } = GRID;
+  for (let j = Math.floor((36-z0)/cell); j <= Math.ceil((62-z0)/cell); j++) {
+    for (let i = Math.floor((-53-x0)/cell); i <= Math.ceil((-20-x0)/cell); i++) {
+      const x = x0 + i * cell, z = z0 + j * cell, k = j * n + i;
+      const r = Math.hypot((x - ISLET.x) / 5.8, (z - ISLET.z) / 7.7);
+      if (r < 1.12) {
+        const y = ISLET.shore.h + 3.65 * smooth(49.45,56.05,z) + 1.85 * (1 - smooth(46.8,49.4,z));
+        TH[k] = Math.max(TH[k], lerp(SEA, y, 1-smooth(.79,1.12,r)));
+      }
+      const [u,v] = localCavePoint(x,z);
+      if (Math.abs(u) < 2.4 && v > 4.65 && v < 9.1) {
+        const blend = (1-smooth(1.65,2.4,Math.abs(u))) * smooth(4.65,5.52,v) * (1-smooth(8.4,9.1,v));
+        TH[k] = lerp(TH[k], DEEP_CAVE.floor, blend);
+      }
+    }
+  }
+}
+function claimExplorationChest(type, x, z, note, mark) {
+  if (SAVE_IO.readonly || bagUsed() + TREASURES[type].size > upVal('bag')) {
+    SND.error();
+    toast('가방에 빈칸을 만든 뒤 상자를 열어 보세요', 'info', 2.7);
+    return;
+  }
+  const treasure = spawnItem(type, x, z, null, { seen: true });
+  if (!pickupItem(treasure, true)) return;
+  mark();
+  if (note) noteExploration(note);
+  requestSave();
+}
+function addExplorationChest(key, x, z, ry, name, type, visible, available, claimed, mark, note) {
+  const y = groundAt(x,z), lid = key + 'Lid';
+  blk(key,x,y+.02,z,.75,.33,.52,0x5a3825,{ry,r:.06});
+  blk(lid,x,y+.35,z,.78,.17,.55,0x925d37,{ry,r:.08});
+  for (const d of [-.23,.23]) {
+    blk(lid,x+d*Math.cos(ry),y+.47,z-d*Math.sin(ry),.065,.04,.57,0xc8a66a,{ry,r:.01});
+  }
+  const baseMesh = dynFrom(key), lidMesh = dynFrom(lid);
+  const glow = addGlow(x,y+.62,z,1.55,TREASURES[type].color,0,{shape:1,pulse:.35});
+  const sync = () => {
+    baseMesh.vis = lidMesh.vis = visible();
+    M4.compose(lidMesh.m,0,claimed() ? .13 : 0,0,0,0,0);
+    glow.a = visible() && !claimed() && available() ? .49 : 0;
+  };
+  WORLD.anim.push(sync);
+  WORLD.sync.push(sync);
+  addInter({x,z,y,r:.81,dy:.8,name,act:'상자 열기',prio:1,
+    on:()=>visible() && !claimed() && available(),
+    use:()=>{ if (visible() && !claimed() && available()) claimExplorationChest(type,x,z,note,mark); }});
+}
+function deepPassageAllowed() {
+  if (!nightCaveOpen()) return '물이 차서 입구 쪽 길만 이용할 수 있어요.';
+  if (U_LEVEL.v >= DEEP_CAVE.entryLimit) return '안쪽 통로가 잠겼어요. 다음 밤 썰물 초반에 와 보세요.';
+  return true;
+}
+function moveThroughCave(p, yaw) {
+  releaseKeys();
+  const stamina = P.stam, exhausted = P.exhausted;
+  placePlayer(p[0],p[1],yaw);
+  P.stam = stamina; P.exhausted = exhausted;
+  G.near = null;
+  syncNightCave();
+  updateReturn();
+  requestSave();
+}
+function buildCaveBranches() {
+  const c = NIGHT_CAVE, key = 'tmpDeepCave', roofKey = 'tmpDeepRoof';
+  const door = cavePoint(.14,3.75);
+  const innerExit = cavePoint(0,5.31);
+  const landing = cavePoint(0,5.91);
+  const exit = cavePoint(0,3.42);
+  const [cx,cz] = cavePoint(.08,1.0);
+  const caveVisible = () => !CH.on && lightDone();
+  addExplorationChest('tmpCaveNearChest',cx,cz,c.ry,'입구 쪽 상자','coins',
+    caveVisible,nightCaveOpen,()=>SAVE.exploreFinds.shallow,()=>{ SAVE.exploreFinds.shallow = true; },'shallow');
+  const box = (mesh,u,v,y,w,h,d,color) => {
+    const [x,z] = cavePoint(u,v);
+    blk(mesh,x,y,z,w,h,d,color,{ry:c.ry,r:.13});
+  };
+  const colliders = [];
+  for (const [u,v,w,d] of [[-1.77,6.78,.65,3.92],[1.77,6.78,.65,3.92],[0,8.57,3.6,.49],[0,4.91,3.6,.45]]) {
+    const [x,z] = cavePoint(u,v);
+    box(key,u,v,-1.4,w,4.54,d,0x525b62);
+    colliders.push(colBox(x,z,w/2,d/2,c.ry,3.3));
+  }
+  box(roofKey,0,6.77,2.86,4.1,.67,4.05,0x434d55);
+  for (const [u,v,h] of [[-1.5,5.6,.45],[1.34,6.5,.27],[-.9,8.1,.38]]) {
+    const [x,z] = cavePoint(u,v);
+    ball(roofKey,x,3.24,z,.72,0x677077,{sub:1,sy:h,sz:1.19,bump:.2});
+  }
+  const body = dynFrom(key), roof = dynFrom(roofKey);
+  WORLD.sync.push(() => { for (const col of colliders) col.on = !CH.on; });
+  WORLD.anim.push(() => {
+    body.vis = !CH.on;
+    roof.vis = !CH.on && (!inDeepCave(P.x,P.z) || firstPersonView());
+  });
+  const [tx,tz] = cavePoint(-.34,DEEP_CAVE.chestV);
+  const inRoom = () => caveVisible() && inDeepCave(P.x,P.z);
+  addExplorationChest('tmpCaveDeepChest',tx,tz,c.ry,'안쪽 방의 상자','chalicev',caveVisible,
+    ()=>inRoom() && U_LEVEL.v < groundAt(tx,tz) + CFG.WADE,
+    ()=>SAVE.exploreFinds.deep,()=>{ SAVE.exploreFinds.deep = true; },'deep');
+  const doorMark = addGlow(door[0],groundAt(...door)+1.15,door[1],1.5,0x8dd6ee,0,{shape:1,pulse:.23});
+  const exitMark = addGlow(innerExit[0],DEEP_CAVE.floor+1.17,innerExit[1],1.4,0xffc985,0,{shape:1,pulse:.25});
+  WORLD.anim.push(() => {
+    doorMark.a = caveVisible() && G.night ? .55 : 0;
+    exitMark.a = inRoom() ? .62 : 0;
+  });
+  const forward = c.ry;
+  addInter({x:door[0],z:door[1],y:groundAt(...door),r:.78,dy:1.4,
+    name:'물이 먼저 차는 안쪽 통로',act:'안쪽 방으로',prio:2,on:()=>caveVisible() && G.night && insideNightCave(),
+    can:deepPassageAllowed,use:()=>{
+      if (deepPassageAllowed() !== true) return;
+      if (!G.clock) { startClock(); markDeparture(); }
+      moveThroughCave(landing,forward);
+      showBanner('동굴 안쪽 방','물이 차기 전에 상자를 열고 입구로 돌아가세요',2.7);
+    }});
+  addInter({x:innerExit[0],z:innerExit[1],y:groundAt(...innerExit),r:1.25,dy:1,
+    name:'입구 쪽 통로',act:'동굴 입구 쪽으로',prio:2,on:inRoom,
+    use:()=>moveThroughCave(exit,forward + Math.PI)});
+}
+function isletDockAt(x,z) { return Math.hypot(x-ISLET.dockX,z-ISLET.dockZ) < 1.25; }
+function canSailIslet() {
+  if (SAVE_IO.readonly) return '최신 저장을 다시 불러온 뒤 이용할 수 있어요.';
+  if (G.clock || G.dayDone) return '본섬의 물때가 시작되기 전에 출항할 수 있어요.';
+  if (SAVE.isletVisit.day === SAVE.stats.exp) return '오늘은 이미 다녀왔어요. 다음 썰물에 다시 출항할 수 있어요.';
+  return true;
+}
+function setIsletTide() {
+  Object.assign(CFG,ISLET.tide);
+  navFloodTimes();
+}
+function sailIslet(outward) {
+  if (G.islet === outward || (outward ? canSailIslet() !== true : SAVE_IO.readonly)) return;
+  releaseKeys();
+  G.islet = outward;
+  G.time = 0; G.clock = outward; G.inPort = !outward; G.danger = 0; G.dangerTick = 0;
+  G.warned = {}; G.flooded = {}; G.floodedAt = {}; G.safe = null; G.near = null; G.alertLvl = 0;
+  if (outward) {
+    SAVE.isletVisit = { day: SAVE.stats.exp, looted: 0 };
+    noteExploration('islet');
+    setIsletTide();
+  } else {
+    setTideDay(SAVE.stats.exp);
+    navFloodTimes();
+  }
+  U_LEVEL.v = CFG.WL;
+  syncCoastBridges();
+  placePlayer(outward ? ISLET.dockX : ISLET.portX,outward ? ISLET.dockZ : ISLET.portZ,Math.PI);
+  CAMS.yawT = CAM.yaw = 0; CAMS.yawV = 0;
+  revealAround(P.x,P.z,18);
+  hudInit();
+  updateReturn();
+  updateObjective(true);
+  SND.relief();
+  showBanner(outward ? '외딴섬' : '오래된 항구',outward ? '외딴섬의 물때가 시작됐어요 · 만조까지 1분 40초' : '본섬은 출항할 때부터 물때가 시작돼요',3.3);
+  requestSave();
+}
+function buildOutlyingIsland() {
+  const x = ISLET.dockX, z = ISLET.dockZ, k = 'tmpIsletDock';
+  const y = groundAt(x,z) + .06;
+  blk(k,x,y-.23,z,2.55,.23,2.44,0x9a613e,{r:.055});
+  addPad(x-1.275,x+1.275,z-1.22,z+1.22,y,'wood',{shore:false});
+  for (const ox of [-1.05,1.05]) for (const oz of [-1,1]) {
+    cyl(k,x+ox,y-.85,z+oz,.105,.12,1.5,0x775036,{seg:6});
+  }
+  dynFrom(k);
+  for (const [rx,rz,r] of [[-45.7,52.8,.67],[-40.3,54,.66],[-44.7,46.6,.51],[-41.6,46.1,.61],[-46.1,55.5,.57]]) {
+    const h = terrainAt(rx,rz), rockKey = 'tmpIsletRock';
+    ball(rockKey,rx,h+.15,rz,r,0x79817c,{sub:2,sy:.71,bump:.22});
+    ball(rockKey,rx,h+.37,rz,r*.62,0x76884e,{sub:1,sy:.28,bump:.22});
+    dynFrom(rockKey);
+    colCircle(rx,rz,r*.72,h+r);
+  }
+  const boatKey = 'tmpIsletBoat';
+  ball(boatKey,0,0,0,1,0x745035,{sub:2,sx:.87,sy:.42,sz:1.64,flat:.45});
+  blk(boatKey,0,.29,0,1.4,.11,1.92,0xa07447,{r:.12});
+  blk(boatKey,0,.45,-.34,1.55,.12,.32,0xc59663,{r:.04});
+  blk(boatKey,.28,.48,-.47,.14,.075,2.35,0xd2a773,{ry:.64,r:.025});
+  const boatMesh = makeMesh(takeGeo(boatKey));
+  const mainBoat = addDyn(boatMesh), islandBoat = addDyn(boatMesh);
+  WORLD.anim.push((dt,t)=>{
+    const active = !CH.on && lightDone();
+    mainBoat.vis = active && !G.islet;
+    islandBoat.vis = active && G.islet;
+    const bob = Math.sin(t*1.5) * .06;
+    M4.compose(mainBoat.m,-6.7,U_LEVEL.v+bob+.19,50.4,0,.08,0);
+    M4.compose(islandBoat.m,x-2.1,U_LEVEL.v+bob+.19,z+2.65,0,.22,0);
+  });
+  addInter({x:ISLET.portX,z:ISLET.portZ,y:groundAt(ISLET.portX,ISLET.portZ),r:1.35,prio:3,
+    name:'외딴섬 나룻배',act:'외딴섬으로 출항',on:()=>!CH.on && lightDone() && !G.islet,
+    can:canSailIslet,use:()=>sailIslet(true)});
+  addInter({x,z,y,r:1.4,prio:3,name:'외딴섬 나룻배',act:'항구로 귀항',
+    on:()=>G.islet,use:()=>sailIslet(false)});
+  for (const [bit,tx,tz,name,type] of [
+    [1,-41.6,54.42,'부두 언덕의 상자','coral'],
+    [2,-43,49.2,'모래길에 묻힌 상자','chalice'],
+  ]) {
+    addExplorationChest('tmpIsletChest'+bit,tx,tz,.3,name,type,()=>G.islet,
+      ()=>U_LEVEL.v < groundAt(tx,tz)+CFG.WADE,
+      ()=>Boolean(SAVE.isletVisit.looted & bit),
+      ()=>{ SAVE.isletVisit.looted |= bit; });
+  }
+  buildNav(x-8,x+8,z-10,z+10);
+}
+
 /* 등대 아래의 밤 썰물 동굴 */
 const NIGHT_CAVE = { x: -27.6, z: 47.0, ry: 3*Math.PI/4, walls: [] };
 function cavePoint(u,v) {
@@ -4520,7 +4809,7 @@ function insideNightCave() {
   return Math.abs(u) <= 1.2 && v >= -.35 && v <= 4.1;
 }
 function nightCaveOpen() {
-  return !CH.on && SAVE.ended && lightDone() && G.night && !G.dayDone && U_LEVEL.v < NIGHT_CAVE.flood;
+  return !CH.on && !G.islet && SAVE.ended && lightDone() && G.night && !G.dayDone && U_LEVEL.v < NIGHT_CAVE.flood;
 }
 function syncNightCave() {
   const c = NIGHT_CAVE;
@@ -4547,6 +4836,7 @@ function updateCaveLight(strength) {
 function takeCaveExhibit() {
   if (!nightCaveOpen() || SAVE.caveTreasure || SAVE_IO.readonly) return;
   SAVE.caveTreasure = true;
+  noteExploration('compass');
   requestSave(); SND.achieve();
   const readCompass = () => openReader('월광 나침반', '등대 불빛을 오래 받아 푸르게 빛나는 나침반이다. 뒷면에는 “불빛이 돌아오는 곳이 우리의 항구”라고 새겨져 있다.\n\n항구 기록대의 보물 도감에서 볼 수 있어요.');
   if (!playMilestoneScene('compass', readCompass)) readCompass();
@@ -4626,6 +4916,7 @@ function buyLightStage() {
   SND.coin(); setTimeout(() => SND.relief(), 200);
   if (lightDone()) {
     award('lighthouse');
+    noteExploration('lighthouse');
     later(0.8, () => toast('🗼 등대에 불이 켜졌어요! 이제 등대에서 밤 썰물 탐험을 고를 수 있어요', 'ach', 5));
   } else toast(`🗼 ${st.name} 완료 (${SAVE.light}/${LIGHT_STAGES.length})`, 'good', 3);
   requestSave();
@@ -5729,7 +6020,7 @@ function fxUpload(time) {
 /* =========================================================
    16. 길찾기 격자: 귀환 시간 예측, 미니맵 귀환 경로
    ========================================================= */
-const NAV = { x0: -48, z0: -54, cell: 1.0, nx: 114, nz: 108, h: null, ok: null, e: null, port: null, lighthouse: null, ft: null, fd: null };
+const NAV = { x0: -48, z0: -54, cell: 1.0, nx: 114, nz: 114, h: null, ok: null, e: null, port: null, lighthouse: null, ft: null, fd: null };
 const NDIR = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
 function navNodeH(x, z) { return groundAt(x, z); }
 function navEdgeOK(x0, z0, x1, z1) {
@@ -6423,7 +6714,7 @@ const G = {
   inPort: true, near: null, warned: {}, flooded: {}, floodedAt: {},
   ret: { ok: false, t: 0, margin: 0, path: [] }, retTimer: 0,
   sealOpen: false, tabSeq: [], endingRun: false, dayDone: false, auto: null, hudT: 0, mapT: 0,
-  relicModels: {}, timers: [], guide: null, guideA: 0, alertLvl: 0, spots: [], dig: null, night: false,
+  relicModels: {}, timers: [], guide: null, guideA: 0, alertLvl: 0, spots: [], dig: null, night: false, islet: false,
 };
 // 시뮬레이션 시간 기준 예약 실행 (일시정지 중에는 멈춤)
 function later(sec, fn) { G.timers.push({ t: sec, fn }); }
@@ -6580,7 +6871,8 @@ function buildTreasurePools() {
   }
   const avoid = [...INTER.map(it => [it.x, it.z]), ...Object.values(RELIC_SPOTS).map(r => [r.x, r.z])];
   const raftOn = RP.raft.on; RP.raft.on = false;
-  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+  const oldSouthernEdge = 53; // 기존 씨앗의 보물 후보 번호는 본섬 탐색 범위로 유지
+  for (let j = 0; z0 + j * cell <= oldSouthernEdge; j++) for (let i = 0; i < nx; i++) {
     const k = j * nx + i;
     if (!NAV.ok[k]) continue;
     const x = x0 + i * cell + (rnd() - 0.5) * 0.7, z = z0 + j * cell + (rnd() - 0.5) * 0.7;
@@ -7008,6 +7300,7 @@ function startExpedition(atSpawn = true) {
   // 밤 썰물: 오늘 이미 시작한 하루가 있으면 그날 그대로, 새 날이면 등대 탭의 선택대로 (등대를 끝까지 고친 뒤에만)
   const es0 = SAVE.expState && SAVE.expState.exp === SAVE.stats.exp ? SAVE.expState : SAVE.depState && SAVE.depState.exp === SAVE.stats.exp ? SAVE.depState : null;
   G.night = es0 && es0.night !== undefined ? !!es0.night : !!SAVE.night && lightDone();
+  G.islet = false;
   setTideDay(SAVE.stats.exp);
   navFloodTimes();
   G.time = 0; G.clock = false; U_LEVEL.v = CFG.WL; G.expEarn = 0; G.expItems = 0;
@@ -7047,8 +7340,8 @@ function endDay(rescued, fromHarbor = false) {
   G.lastDisplayReward = payLegacyDisplayRewards();
   G.lastHarborGoal = fromHarbor && !rescued && !SAVE_IO.readonly ? harborGoal() : null;
   if (G.lastHarborGoal?.met) addGold(G.lastHarborGoal.reward);
+  updateSettlementRecord();
   SAVE.stats.exp++;
-  SAVE.stats.best = Math.max(SAVE.stats.best, G.expEarn);
   if (rescued) SAVE.streak = 0;
   else if (G.expItems > 0) { SAVE.streak = (SAVE.streak || 0) + 1; if (SAVE.streak >= 5) award('streak5'); }
   writeSave();
@@ -7075,7 +7368,7 @@ function expSnapshot(x = P.x, z = P.z, yaw = P.yaw) {
     bag: G.bag.map(b => b.type),
     items: G.items.filter(i => i.alive).map(i => [i.type, +i.x.toFixed(2), +i.z.toFixed(2), i.seen ? 1 : 0, i.dropped ? 1 : 0, i.spring ? 1 : 0]),
     spots: G.spots.map(s => s.done ? 1 : 0), sealOpen: !!G.sealOpen, scoped: !!G.scoped,
-    haulKinds: cleanHaulKinds(G.haulKinds), earn: G.expEarn | 0, picked: G.expItems | 0, stam: +P.stam.toFixed(1), ex: P.exhausted ? 1 : 0, night: G.night ? 1 : 0,
+    haulKinds: cleanHaulKinds(G.haulKinds), earn: G.expEarn | 0, picked: G.expItems | 0, stam: +P.stam.toFixed(1), ex: P.exhausted ? 1 : 0, night: G.night ? 1 : 0, islet: G.islet ? 1 : 0,
   };
 }
 // 지금 서 있는 곳이 이어하기를 시작해도 안전한지 (위험한 물·물모래·움직이는 뗏목 위가 아님)
@@ -7115,6 +7408,8 @@ function markDeparture() {
 }
 function restoreExpState(es, quiet = false) {
   const smax = upVal('stamina');
+  G.islet = !CH.on && lightDone() && es.islet === 1 && SAVE.isletVisit.day === es.exp;
+  if (G.islet) setIsletTide();
   G.clock = (es.clock ?? 1) ? true : false;   // 구버전 저장은 시계가 돈 뒤에만 만들어졌음
   G.time = G.clock && typeof es.t === 'number' && Number.isFinite(es.t) ? Math.max(0, es.t) : 0; U_LEVEL.v = tideLevel(G.time);
   syncCoastBridges();
@@ -7132,7 +7427,7 @@ function restoreExpState(es, quiet = false) {
   if (G.sealOpen && !SAVE.relics.seal) { RP.lidMv.set(1, true); RP.tabs.forEach(t => { t.on.vis = true; t.off.vis = false; t.glow.a = 0.5; }); }
   syncRelicModels();
   // 이미 지난 침수는 조용히 반영
-  FLOOD_ZONES.forEach((z, i) => { const ft = tideTimeFor(z.h + CFG.DANGER); if (ft - CFG.WARN_AHEAD < G.time) G.warned[i] = true; if (ft < G.time) { G.flooded[i] = true; G.floodedAt[i] = -99; } });
+  activeFloodZones().forEach((z, i) => { const ft = tideTimeFor(z.h + CFG.DANGER); if (ft - CFG.WARN_AHEAD < G.time) G.warned[i] = true; if (ft < G.time) { G.flooded[i] = true; G.floodedAt[i] = -99; } });
   const num = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);   // 0도 올바른 좌표
   const savedX = num(es.x, PORT.spawnX), savedZ = num(es.z, PORT.spawnZ);
   // 예전 부두 곁발판에 저장된 위치를 같은 길이의 중앙 부두로 옮긴다.
@@ -7170,7 +7465,7 @@ function stepGame(dt) {
   U_LEVEL.v = tideLevel(G.time);
   syncCoastBridges();
   syncNightCave();
-  tickCoast();
+  if (!G.islet) tickCoast();
   R.future = tideLevel(G.time + CFG.WARN_AHEAD);
   R.warn = G.clock && G.time > 8 && G.time < CFG.T ? 1 : 0;
   if (G.clock && G.time > 40) tut('tide');
@@ -7227,7 +7522,7 @@ function stepGame(dt) {
   // 귀환 예측
   G.retTimer -= dt;
   if (G.retTimer <= 0) { G.retTimer = 0.5; updateReturn(); }
-  returnAlerts(dt);
+  if (!inDeepCave(P.x,P.z)) returnAlerts(dt);
   if (G.clock && !inPortNow && G.ret.ok && G.ret.margin < 45 && G.time > 60) tut('ret');
   // 처음 보물 안내
   if (!SAVE.tut.first) for (const it of G.items) if (it.alive && Math.hypot(it.x - P.x, it.z - P.z) < 9) { tut('first'); break; }
@@ -7241,10 +7536,12 @@ function zoneRelevant(z) {
   if (p) for (let i = 0; i < p.length; i += 2) { const k = p[i]; if (Math.abs(NAV.x0 + (k % NAV.nx) * NAV.cell - z.x) < 4 && Math.abs(NAV.z0 + ((k / NAV.nx) | 0) * NAV.cell - z.z) < 4) return true; }
   return false;
 }
+function activeFloodZones() { return G.islet ? [ISLET.shore] : FLOOD_ZONES; }
 function stepZones() {
   if (!G.clock) return;
-  for (let i = 0; i < FLOOD_ZONES.length; i++) {
-    const z = FLOOD_ZONES[i];
+  const zones = activeFloodZones();
+  for (let i = 0; i < zones.length; i++) {
+    const z = zones[i];
     const rem = tideTimeFor(z.h + CFG.DANGER) - G.time;
     if (rem <= CFG.WARN_AHEAD && rem > 0 && !G.warned[i]) {
       G.warned[i] = true;
@@ -7260,8 +7557,12 @@ function updateReturn() {
   if (G.inPort) { G.ret = { ok: true, t: 0, margin: 999, path: [], port: true }; G.guide = null; return; }
   groundAt(P.x, P.z);
   if (GP && GP === RP.raft) { G.ret = { ok: false, raft: true, path: [] }; G.guide = null; return; }
+  if (!CH.on && inDeepCave(P.x,P.z)) {
+    G.ret = { ok: true, t: 0, margin: 999, path: [], deep: true }; G.guide = null; G.guideA = 0; return;
+  }
   const now = G.clock ? G.time : 0;
-  const r = navReturn(P.x, P.z, now);
+  const dockGoal = G.islet ? k => isletDockAt(NAV.x0 + (k % NAV.nx)*NAV.cell, NAV.z0 + ((k / NAV.nx)|0)*NAV.cell) : null;
+  const r = navReturn(P.x, P.z, now, CFG.WALK, dockGoal);
   G.ret = r.ok ? r : { ok: false, path: [] };
   G.safe = r.ok ? null : safeZone(now);
   G.guide = r.ok ? guidePoints(r.path) : G.safe && !G.safe.here ? guidePoints(G.safe.path) : null;
@@ -7321,7 +7622,7 @@ function returnAlerts(dt) {
     if (r.margin > b1 + 35) G.alertLvl = 0;
     if (r.margin < b1 && G.alertLvl < 1 && G.time > 20) {
       G.alertLvl = 1; SND.bell(1); pulseReturn();
-      toast(`🔔 항구의 종: 귀환 여유가 ${fmtTime(b1)} 남았어요`, 'warn', 3.2);
+      toast(`🔔 ${G.islet ? '나룻배' : '항구의 종'}: 귀환 여유가 ${fmtTime(b1)} 남았어요`, 'warn', 3.2);
     } else if (r.margin < b2 && G.alertLvl < 2 && G.time > 20) {
       G.alertLvl = 2; SND.bell(3); pulseReturn();
       toast('🔔🔔 지금 출발해야 안전해요! 바닥의 빛 점을 따라가세요', 'bad', 3.8);
@@ -7402,12 +7703,14 @@ function rescue(reason) {
   // 구조되면 가방 속 보물은 그대로이고, 구조대가 소지금의 일부를 수고비로 받아 감 (하루를 확정하기 전에 오늘 산 물건을 확인)
   const insured = hasItem('insure'), fee = rescueFee();
   SAVE.stats.rescues++;
+  if (SAVE.stats.rescues === 1) noteExploration('rescue');
   damageCoastCargo();
   if (fee > 0 && spendGold(fee)) SAVE.stats.fees = (SAVE.stats.fees || 0) + fee;
   const prevStreak = SAVE.streak || 0;
   endDay(true);   // 구조된 하루를 바로 확정: 창을 닫거나 새로고침해도 구조비를 내기 전·같은 날로 되돌아가지 않음
   fadeTo(true, reason === 'tide' ? '만조가 섬을 덮었어요.\n구조선이 당신을 찾아 항구로 데려왔어요.' : reason === 'mud' ? '물모래에 허리까지 빠졌어요.\n구조대가 밧줄로 당신을 끌어올렸어요.' : '물살에 휩쓸렸어요.\n구조대가 당신을 건져 올렸어요.');
   later(1.9, () => {
+    if (G.islet) { G.islet = false; setTideDay(SAVE.stats.exp); U_LEVEL.v = tideLevel(G.time); }
     placePlayer(PORT.spawnX, PORT.spawnZ, Math.PI);
     G.inPort = true;
     showResult({ kind: 'rescue', reason, prevStreak, fee, insured });
@@ -7712,6 +8015,7 @@ function deliverRequest() {
   Bag.removeAt(indices);
   const value = priceOf(q.type) * q.count;
   addGold(value + q.reward); SAVE.stats.earned += value; G.expEarn += value;
+  updateSettlementRecord();
   if (q.type === 'chalice') {
     SAVE.stats.chalice = (SAVE.stats.chalice || 0) + q.count;
     if (SAVE.stats.chalice >= 3) award('chalice3', true);
@@ -7729,7 +8033,7 @@ function sellAll() {
   const { salt } = saleBonus(total);
   addGold(total + salt); SAVE.stats.earned += total + salt; G.expEarn += total + salt;
   SAVE.stats.chalice = (SAVE.stats.chalice || 0) + chal;
-  SAVE.stats.best = Math.max(SAVE.stats.best, G.expEarn);
+  updateSettlementRecord();
   Bag.clear(); SAVE.pendingBag = [];
   const firstSale = !SAVE.ach.firstSale;
   award('firstSale', true);
@@ -7878,6 +8182,7 @@ const MAP_LABELS = [
   { t: '성소', x: -2, z: -50.6 },
   { t: '산호 암초', x: 48.6, z: 41.0 },
   { t: '갈매기 바위', x: 59.5, z: -1.8 },
+  { t: '외딴섬', x: ISLET.x, z: ISLET.z-2.8, always: true, islet: true },
 ];
 let mapCursor = null;
 function mapPointAt(fx, fz) {
@@ -8076,6 +8381,7 @@ function drawBigMap() {
   }
   // 이름난 곳
   for (const L of MAP_LABELS) {
+    if (L.islet && (CH.on || !lightDone())) continue;
     if (!L.always && !expSeen(L.x, L.z)) continue;
     const [x, y] = bmP(L.x, L.z);
     label(L.t, x, y, { size: 15, fam: 'disp', col: '#3a2f22' });
@@ -8283,11 +8589,12 @@ const UI = { bagSig: '', lastObj: '', toasts: [], hintT: 0, bannerT: 0, storyTok
 function hudInit() {
   $('btnHarborFinish').hidden = !canFinishHarborDay();
   const td = $('tideDay');
-  td.textContent = `${TIDE.icon} ${TIDE.short}`; td.className = 'tchip ' + TIDE.id; td.title = `${TIDE.name}: ${TIDE.desc}`;
+  td.textContent = G.islet ? '⛵ 외딴섬 물때' : `${TIDE.icon} ${TIDE.short}`; td.className = 'tchip ' + TIDE.id;
+  td.title = G.islet ? '외딴섬에 도착할 때부터 흐르는 물때' : `${TIDE.name}: ${TIDE.desc}`;
   const tw = $('tideWx');
   tw.textContent = `${WEATHER.icon} ${WEATHER.short}`; tw.className = 'tchip wx ' + WEATHER.id + (WEATHER.id === 'clear' ? ' hidden' : ''); tw.title = `${WEATHER.name}: ${WEATHER.desc}`;
   const marks = $('tideMarks'); marks.innerHTML = '';
-  FLOOD_ZONES.forEach((z, i) => {
+  activeFloodZones().forEach((z, i) => {
     const f = clamp((z.h + CFG.DANGER - CFG.WL) / (CFG.WH - CFG.WL), 0, 1);
     const d = document.createElement('div'); d.className = 'tmark' + (f >= 0.999 ? ' late' : ''); d.style.left = (f * 100).toFixed(1) + '%'; d.title = z.name + (f >= 0.999 ? ' (만조 뒤에 잠김)' : '');
     d.dataset.i = i; marks.appendChild(d);
@@ -8534,8 +8841,9 @@ function hudUpdate(dt) {
   if (!G.clock) nf = '항구 밖으로 나가면 물이 들어오기 시작해요';
   else {
     let best = null, bt = 1e9;
-    FLOOD_ZONES.forEach((z, i) => { const rem = tideTimeFor(z.h + CFG.DANGER) - t; if (rem > 0 && rem < bt && zoneRelevant(z)) { bt = rem; best = z; } });
-    if (!best) FLOOD_ZONES.forEach((z, i) => { const rem = tideTimeFor(z.h + CFG.DANGER) - t; if (rem > 0 && rem < bt) { bt = rem; best = z; } });
+    const zones = activeFloodZones();
+    zones.forEach((z, i) => { const rem = tideTimeFor(z.h + CFG.DANGER) - t; if (rem > 0 && rem < bt && zoneRelevant(z)) { bt = rem; best = z; } });
+    if (!best) zones.forEach((z, i) => { const rem = tideTimeFor(z.h + CFG.DANGER) - t; if (rem > 0 && rem < bt) { bt = rem; best = z; } });
     nf = best ? `<span class="nfz">${bt <= CFG.WARN_AHEAD ? '⚠' : '🌊'} 다음 침수: <b>${best.name}</b></span><span class="nft"> · ${fmtMS(bt)} 뒤</span>` : '🌊 낮은 길이 모두 잠겼어요';
   }
   setHTML($('nextFlood'), nf);
@@ -8543,13 +8851,14 @@ function hudUpdate(dt) {
   const r = G.ret;
   let rs;
   if (G.inPort) rs = '<span class="tag st-safe">⚓ 항구</span>여기는 언제나 안전해요';
+  else if (r.deep) rs = '<span class="tag st-mid">동굴 안쪽</span>들어온 통로에서 입구 쪽으로 돌아가세요';
   else if (r.raft) rs = '<span class="tag st-mid">⛵ 뗏목 위</span>물이 차오르면 함께 떠올라요';
   else if (!r.ok) rs = `<span class="tag st-bad">⛔ 귀환 경로 없음</span>${safeText(true)}`;
   else {
     const m = Math.max(0, r.margin);
     const cls = !G.clock ? 'st-ok' : m > 75 ? 'st-ok' : m > 40 ? 'st-mid' : m > 15 ? 'st-hi' : 'st-bad';
     const lab = !G.clock ? '여유' : m > 75 ? '여유' : m > 40 ? '빠듯' : m > 15 ? '서둘러요' : '위험';
-    rs = `<span class="tag ${cls}">${lab}</span>항구<span class="lng">까지 걸어서</span> ${fmtMS(r.t)}` + (G.clock ? ` · <span class="lng">남은 </span>여유 <span class="rm">${fmtMS(m)}</span>` : '');
+    rs = `<span class="tag ${cls}">${lab}</span>${G.islet ? '나룻배' : '항구'}<span class="lng">까지 걸어서</span> ${fmtMS(r.t)}` + (G.clock ? ` · <span class="lng">남은 </span>여유 <span class="rm">${fmtMS(m)}</span>` : '');
   }
   setHTML($('returnStat'), rs);
   updateObjective(false);
@@ -8625,6 +8934,11 @@ function updateObjective(force) {
     if (G.clock && !G.inPort && G.ret.ok && G.ret.margin < 25 && G.expEarn > 0) sub = '⚠ 지금 돌아가지 않으면 구조되어 기록이 절반이 돼요';
     const html = main + `<span class="sub">${sub}</span>`;
     if (force || html !== UI.lastObj) { if (SET.objMini && UI.lastObj && html !== UI.lastObj) $('objective').classList.add('new'); UI.lastObj = html; $('objective').innerHTML = html; $('objective').classList.toggle('warn', sub.startsWith('⚠')); }
+    return;
+  }
+  if (G.islet) {
+    const html = '외딴섬의 보물을 찾아 <b>나룻배</b>로 돌아오세요<span class="sub">부두 언덕의 상자는 안전하고, 낮은 모래길은 먼저 잠겨요.</span>';
+    if (force || html !== UI.lastObj) { UI.lastObj = html; $('objective').innerHTML = html; $('objective').classList.remove('warn'); }
     return;
   }
   if (SAVE.ended) {
@@ -9362,7 +9676,7 @@ function renderPort() {
         return `<div class="up${done ? ' owned' : ''}" id="light_${i}"><h4>${i + 1}. ${q.name}</h4><p class="ds">${q.desc}</p><div class="price">${q.cost} G</div>${btn}</div>`;
       }).join('') + '</div>';
       if (lightDone()) h += `<h3>🌙 밤 썰물</h3><div class="nightpick"><button class="btn ${!SAVE.night ? 'primary' : 'dark'}" data-night="0">☀ 낮 썰물</button><button class="btn ${SAVE.night ? 'primary' : 'dark'}" data-night="1">🌙 밤 썰물</button></div>
-        <p class="note">밤 썰물: 섬이 어둡고 멀리 보이지 않지만, 보물이 스스로 빛나고 등대 빛줄기가 바다를 훑어요. 희귀 변종이 세 배 자주 나와요. ${canSwitchNightToday() ? '지금 고르면 오늘부터 바로 바뀌어요.' : '선택은 다음 탐험부터 적용돼요.'}</p><p class="note">등대 남서쪽 비탈 아래 해안에는 빛이 지나갈 때만 보이는 표식이 있어요. 물이 오르기 전에 바위 틈을 찾아보세요.</p>`;
+        <p class="note">밤 썰물: 섬이 어둡고 멀리 보이지 않지만, 보물이 스스로 빛나고 등대 빛줄기가 바다를 훑어요. 희귀 변종이 세 배 자주 나와요. ${canSwitchNightToday() ? '지금 고르면 오늘부터 바로 바뀌어요.' : '선택은 다음 탐험부터 적용돼요.'}</p><p class="note">등대 남서쪽 비탈 아래 해안에는 빛이 지나갈 때만 보이는 표식이 있어요. 물이 오르기 전에 바위 틈을 찾아보세요. 입구 쪽 상자와 물이 더 일찍 차는 안쪽 방이 있어요.</p><p class="note">외딴섬은 물때가 시작되기 전에 항구 부두 끝의 나룻배를 타고 갈 수 있어요. 만조까지 1분 40초이며 하루에 한 번 갈 수 있어요.</p>`;
       if (lightDone()) h += `<h3>컷신 다시 보기</h3><div class="nightpick"><button class="btn" data-milestone="lighthouse">등대 점등</button>${SAVE.caveTreasure ? '<button class="btn" data-milestone="compass">월광 나침반 엔딩</button>' : ''}</div>`;
       else h += `<p class="note">등대는 항구 서쪽 해안 언덕에 있어요. 네 단계를 모두 마치면 밤 썰물 탐험을 고를 수 있어요.</p>`;
     }
@@ -9375,7 +9689,7 @@ function renderPort() {
       ${SAVE.clue ? '<p class="note">항해일지: 밀물이 차면 서쪽 능선이 가장 안전한 귀갓길이에요.</p>' : ''}</div>
       <div><details><summary>도전 과제 ${achCount()}/${ACH.length} · 펼치기</summary><ul class="compactAchievements">${ACH.map(a => `<li title="${a.desc}">${SAVE.ach[a.id] ? '✓' : '○'} ${a.name} · ${a.desc}</li>`).join('')}</ul></details></div></div>`;
   }
-  if (PM_TAB === 'record' && !CH.on) h += voyageCard() + coastJournal() + '<p class="note">큰 지도에서 밀물길 개방 시간, 해변 보관함, 지도 조각 단서를 확인할 수 있어요.</p>';
+  if (PM_TAB === 'record' && !CH.on) h += explorationJournal() + voyageCard() + coastJournal() + '<p class="note">큰 지도에서 밀물길 개방 시간, 해변 보관함, 지도 조각 단서를 확인할 수 있어요.</p>';
   f += `<button class="btn" id="pmClose">${TOUCH.dev ? '닫기' : '닫기 (Esc)'}</button>`;
   body.innerHTML = h; foot.innerHTML = f;
   body.querySelectorAll('[data-coast]').forEach(b => b.onclick = () => {
@@ -9751,7 +10065,7 @@ function showEnding(first) {
    ========================================================= */
 const tick = () => new Promise(r => setTimeout(r, 0));
 // 빌드 식별자: 어떤 판을 실행 중인지 확인용 (화면 구석·설정·콘솔에만 표시, 저장·규칙과 무관)
-const BUILD_ID = 'Sinking Island build 2026-11-harbor-records';
+const BUILD_ID = 'Sinking Island build 2026-11-islet-journal';
 async function boot() {
   const say = t => { $('loadText').textContent = t; };
   loadSettings();
@@ -9772,10 +10086,7 @@ async function boot() {
   buildItemModels();
   buildPlayer();
   flushParts();
-  buildTerrainGPU();
   say('물길을 살피는 중…'); await tick();
-  setCaveRockMoved?.(true);
-  buildShoreTex();
   // 기존 저장에서 판 둔덕과 들춘 돌의 번호가 유지되도록 보물 후보는 원래 배치로 계산한다.
   setCaveRockMoved?.(false);
   buildNav();
@@ -9788,8 +10099,13 @@ async function boot() {
     const { x, z } = NIGHT_CAVE;
     buildNav(x - 4, x + 6, z - 11, z + 4);
   }
+  sculptExplorationTerrain();
+  buildTerrainGPU();
   withOwnRng(7013, buildNightCave);
   withOwnRng(7014, buildVoyageMarks);
+  withOwnRng(7015, buildCaveBranches);
+  withOwnRng(7016, buildOutlyingIsland);
+  buildShoreTex();
   syncNightCave();
   expInit();
   buildMinimap();
