@@ -1430,6 +1430,7 @@ function defaultSave() {
     hall: {}, hallPension: {}, hallSeen: false, light: 0, lightStarted: false, night: false,
     mapPin: null, voyage: 0, caveTreasure: false, specialHall: {},
     exploreFinds: { shallow: false, deep: false }, explorationLog: [], isletVisit: { day: -1, looted: 0 },
+    tideVault: { clue: false, armedDay: -1, claimed: false },
   };
 }
 let SAVE = defaultSave();
@@ -1595,6 +1596,17 @@ function cleanSave(raw, strict) {
     else if (out.light === LIGHT_STAGES.length) {
       out.isletVisit.day = num(visit.day, -1, out.stats.exp, -1, '외딴섬 방문 날짜가 올바르지 않아요');
       out.isletVisit.looted = num(visit.looted, 0, 3, 0, '외딴섬 상자 기록이 올바르지 않아요');
+    }
+  }
+  if (raw.tideVault !== undefined) {
+    const v = raw.tideVault;
+    if (!isObj(v)) bad('조수 금고 기록이 올바르지 않아요');
+    else if (out.light === LIGHT_STAGES.length) {
+      out.tideVault.clue = bool(v.clue, false, '망원경 단서 기록이 올바르지 않아요');
+      if (out.tideVault.clue) {
+        out.tideVault.armedDay = num(v.armedDay, -1, out.stats.exp, -1, '수문을 연 날짜가 올바르지 않아요');
+        out.tideVault.claimed = bool(v.claimed, false, '조수 금고 보물 기록이 올바르지 않아요');
+      }
     }
   }
   if (raw.explorationLog !== undefined) {
@@ -4551,6 +4563,8 @@ const JOURNAL_NAMES = {
   deep: '밤 동굴의 안쪽 방에서 보물을 찾았어요',
   islet: '처음으로 외딴섬에 도착했어요',
   compass: '월광 나침반을 발견했어요',
+  tideScope: '외딴섬 망원경으로 흰 파도 표식을 발견했어요',
+  tideVault: '밀물에 열린 조수 금고에서 별자리 나침반을 찾았어요',
 };
 
 function noteExploration(id, value = 0) {
@@ -4622,7 +4636,7 @@ function claimExplorationChest(type, x, z, note, mark) {
   if (note) noteExploration(note);
   requestSave();
 }
-function addExplorationChest(key, x, z, ry, name, type, visible, available, claimed, mark, note) {
+function addExplorationChest(key, x, z, ry, name, type, visible, available, claimed, mark, note, unlocked = null) {
   const y = groundAt(x,z), lid = key + 'Lid';
   blk(key,x,y+.02,z,.75,.33,.52,0x5a3825,{ry,r:.06});
   blk(lid,x,y+.35,z,.78,.17,.55,0x925d37,{ry,r:.08});
@@ -4633,7 +4647,8 @@ function addExplorationChest(key, x, z, ry, name, type, visible, available, clai
   const glow = addGlow(x,y+.62,z,1.55,TREASURES[type].color,0,{shape:1,pulse:.35});
   const sync = () => {
     baseMesh.vis = lidMesh.vis = visible();
-    M4.compose(lidMesh.m,0,claimed() ? .13 : 0,0,0,0,0);
+    const lift = unlocked?.() ? .23 : claimed() ? .13 : 0;
+    M4.compose(lidMesh.m,0,lift,0,0,0,0);
     glow.a = visible() && !claimed() && available() ? .49 : 0;
   };
   WORLD.anim.push(sync);
@@ -4795,6 +4810,117 @@ function buildOutlyingIsland() {
       ()=>{ SAVE.isletVisit.looted |= bit; });
   }
   buildNav(x-8,x+8,z-10,z+10);
+}
+
+/* ---------- 외딴섬 망원경과 조수 금고 ---------- */
+const TIDE_VAULT = {
+  scope: { x: -44.6, z: 54.6 },
+  valve: { x: 24, z: 24 },
+  chest: { x: 20, z: 22 },
+  rise: 2.45,
+};
+function vaultActive() {
+  return !CH.on && lightDone() && !G.dayDone;
+}
+function vaultValveDeadline() {
+  return TIDE_VAULT.valve.y + .03;
+}
+function vaultArmed() { return SAVE.tideVault.armedDay === SAVE.stats.exp; }
+function vaultOpen() {
+  return vaultActive() && !G.islet && SAVE.tideVault.clue &&
+    vaultArmed() && U_LEVEL.v >= TIDE_VAULT.rise;
+}
+function vaultValveCheck() {
+  if (!vaultActive() || G.islet || SAVE_IO.readonly) return '지금은 수문을 열 수 없어요.';
+  if (vaultArmed()) return '오늘 수문은 이미 열었어요. 높은 곳의 금고를 확인해 보세요.';
+  if (U_LEVEL.v >= vaultValveDeadline()) return '수문이 잠겼어요. 다음 썰물에 다시 와 보세요.';
+  return true;
+}
+function aimIsletScope() {
+  if (!vaultActive() || !G.islet || SAVE_IO.readonly || G.peek) return;
+  if (!SAVE.tideVault.clue) {
+    SAVE.tideVault.clue = true;
+    noteExploration('tideScope');
+    requestSave();
+  }
+  releaseKeys();
+  const { x, z } = TIDE_VAULT.valve;
+  const y = groundAt(x,z);
+  showBanner('외딴섬 망원경','동쪽 해변의 흰 파도 표식에 초점이 맞았어요',3);
+  G.cine = true;
+  peekAt(x,y+.8,z,3.5,{dist:7,inT:.75,outT:.65,done:()=>{
+    G.cine = false;
+    openReader('흰 파도 표식','본섬 동쪽 해변 돌턱 아래에 오래된 수문이 있어요.\n\n물이 낮을 때 손잡이를 돌려 두면, 밀물에 부표가 떠올라 높은 곳의 금고가 열려요.\n\n큰 지도(M)에 수문과 금고 위치를 표시했어요.');
+  }});
+}
+function buildTideVault() {
+  const scope = TIDE_VAULT.scope, valve = TIDE_VAULT.valve, chest = TIDE_VAULT.chest;
+  const sx = scope.x - .36, sz = scope.z - .28, sy = groundAt(scope.x,scope.z);
+  const heading = Math.hypot(valve.x-sx,valve.z-sz);
+  const dx = (valve.x-sx)/heading, dz = (valve.z-sz)/heading;
+  const key = 'tmpTideScope', brass = 0xd2aa60, wood = 0x795537, stone = 0x72777b;
+  for (const [ox,oz] of [[.27,.2],[-.25,.22],[0,-.31]]) {
+    cylinderBetween(key,[sx+ox,sy-.09,sz+oz],[sx,sy+.9,sz],.038,.045,wood,8);
+  }
+  cylinderBetween(key,[sx-dx*.27,sy+1,sz-dz*.27],[sx+dx*.56,sy+1.17,sz+dz*.56],.105,.155,brass,16);
+  cylinderBetween(key,[sx+dx*.51,sy+1.16,sz+dz*.51],[sx+dx*.63,sy+1.19,sz+dz*.63],.151,.151,0x74cdeb,16);
+  const scopeMesh = dynFrom(key);
+  const scopeGlow = addGlow(sx+dx*.56,sy+1.17,sz+dz*.56,.9,0x79d9ff,0,{shape:1});
+  const scopeVisible = () => vaultActive() && G.islet;
+  addInter({x:scope.x,z:scope.z,y:sy,r:1.3,prio:3,name:'언덕의 망원경',act:()=>SAVE.tideVault.clue?'절벽 다시 보기':'초점 맞추기',
+    on:scopeVisible,use:aimIsletScope,mk:[sx,sy+1.45,sz]});
+
+  const vy = valve.y = groundAt(valve.x,valve.z), gateKey = 'tmpVaultGate', doorKey = 'tmpVaultDoor';
+  const gx = valve.x + .26, gz = valve.z + .75;
+  for (const s of [-1,1]) blk(gateKey,gx+s*.49,vy-.76,gz,.22,1.65,.37,stone,{r:.055});
+  blk(gateKey,gx,vy+.77,gz,1.25,.29,.43,stone,{r:.065});
+  for (const s of [-1,1]) blk(gateKey,gx+s*.19,vy+.87,gz-.228,.26,.06,.06,0xeaf4ee,{rz:s*.5,r:.015});
+  for (const s of [-1,1]) blk(doorKey,gx+s*.18,vy-.70,gz,.34,.83,.16,0x796653,{r:.025});
+  for (const s of [-1,1]) blk(doorKey,gx,vy-.53+s*.19,gz-.09,.68,.06,.04,brass,{r:.015});
+  const frame = dynFrom(gateKey), door = dynFrom(doorKey);
+  const floatKey = 'tmpVaultWaterFloat', floatX = gx + .84, floatZ = gz + .58;
+  ball(floatKey,0,0,0,.22,0xe98538,{sub:2,sy:.72});
+  cyl(floatKey,0,.11,0,.039,.059,.13,brass,{seg:8});
+  const waterFloat = dynFrom(floatKey), floatBed = groundAt(floatX,floatZ) + .14;
+  const ring = addGlow(gx,vy+.98,gz-.25,1.25,0xbbefff,0,{shape:1,pulse:.38});
+  const cy = groundAt(chest.x,chest.z), buoyKey = 'tmpVaultBuoy', liftKey = 'tmpVaultLift';
+  const bx = chest.x + .83, bz = chest.z + .20;
+  for (const s of [-1,1]) cyl(liftKey,bx+s*.2,cy-.08,bz,.049,.057,.95,wood,{seg:7});
+  blk(liftKey,bx,cy+.80,bz,.55,.13,.13,wood,{r:.015});
+  ball(buoyKey,bx,cy+.16,bz,.19,0xe98538,{sub:2,sy:.8});
+  cyl(buoyKey,bx,cy+.25,bz,.035,.052,.14,brass,{seg:6});
+  const buoy = dynFrom(buoyKey), lift = dynFrom(liftKey);
+  const mainland = () => vaultActive() && !G.islet;
+  const clue = () => mainland() && SAVE.tideVault.clue;
+  const sync = () => {
+    const on = vaultActive(), armed = !G.islet && vaultArmed();
+    scopeMesh.vis = scopeVisible();
+    scopeGlow.a = scopeMesh.vis ? (SAVE.tideVault.clue ? .18 : .62) : 0;
+    frame.vis = door.vis = buoy.vis = lift.vis = waterFloat.vis = on;
+    M4.compose(waterFloat.m,floatX,armed ? Math.max(floatBed,U_LEVEL.v+.06) : floatBed,floatZ,0,0,0);
+    M4.compose(door.m,0,on && armed ? .63 : 0,0,0,0,0);
+    M4.compose(buoy.m,0,on && armed ? .62*smooth(vy-.15,TIDE_VAULT.rise,U_LEVEL.v) : 0,0,0,0,0);
+    ring.a = on && SAVE.tideVault.clue && !SAVE.tideVault.claimed ? .38 : 0;
+  };
+  WORLD.anim.push(sync);
+  WORLD.sync.push(sync);
+  sync();
+  addInter({x:valve.x,z:valve.z,y:vy,r:1.2,prio:3,name:'흰 파도 수문',act:'수문 열기',
+    on:()=>clue() && !SAVE.tideVault.claimed,can:vaultValveCheck,use:()=>{
+      if (vaultValveCheck() !== true) return;
+      SAVE.tideVault.armedDay = SAVE.stats.exp;
+      SND.relief();
+      toast('수문을 열었어요. 물이 차오르기 전에 높은 곳의 금고로 올라가세요.', 'good', 4);
+      requestSave();
+    }});
+  addExplorationChest('tmpTideVaultChest',chest.x,chest.z,0,'조수 금고','compassv',
+    vaultActive,vaultOpen,()=>SAVE.tideVault.claimed,()=>{ SAVE.tideVault.claimed = true; },'tideVault',vaultOpen);
+  addInter({x:chest.x,z:chest.z,y:cy,r:1.55,prio:2,name:'조수 금고',act:'살펴보기',
+    on:()=>mainland() && !SAVE.tideVault.claimed && !vaultOpen(),can:()=>{
+      if (!SAVE.tideVault.clue) return '흰 파도 문양이 새겨져 있어요. 외딴섬 언덕의 망원경으로 주변을 살펴보세요.';
+      if (!vaultArmed()) return '물이 낮을 때 동쪽 해변의 흰 파도 수문을 열어 주세요.';
+      return `부표가 떠오르면 금고가 열려요. 약 ${fmtTime(tideTimeFor(TIDE_VAULT.rise)-G.time)} 남았어요.`;
+    }});
 }
 
 /* 등대 아래의 밤 썰물 동굴 */
@@ -7462,7 +7588,12 @@ function stepGame(dt) {
   if (inPortNow && !G.inPort) onReturnPort();
   G.inPort = inPortNow;
   if (G.clock && !G.cine && !G.freeze) G.time += dt;
+  const belowVault = U_LEVEL.v < TIDE_VAULT.rise;
   U_LEVEL.v = tideLevel(G.time);
+  if (belowVault && !SAVE.tideVault.claimed && vaultOpen()) {
+    SND.relief();
+    toast('밀물에 부표가 떠올라 조수 금고가 열렸어요.', 'good', 4);
+  }
   syncCoastBridges();
   syncNightCave();
   if (!G.islet) tickCoast();
@@ -8323,6 +8454,18 @@ function drawBigMap() {
     c.strokeStyle = '#267d70'; c.lineWidth = 3 * u; c.lineCap = 'round'; c.stroke();
     c.restore();
   }
+  if (vaultActive() && G.islet && !SAVE.tideVault.clue) {
+    const [sx,sy] = bmP(TIDE_VAULT.scope.x,TIDE_VAULT.scope.z);
+    label('망원경',sx,sy-8*u,{col:'#1e7084'});
+  }
+  if (vaultActive() && SAVE.tideVault.clue && !SAVE.tideVault.claimed) {
+    for (const [site,name] of [[TIDE_VAULT.valve,'흰 파도 수문'],[TIDE_VAULT.chest,'조수 금고']]) {
+      const [vx,vy] = bmP(site.x,site.z);
+      c.beginPath(); c.arc(vx,vy,3.3*u,0,TAU); c.fillStyle='#1b7786'; c.fill();
+      const low = site === TIDE_VAULT.valve;
+      label(name,vx+(low?12:-12)*u,vy+(low?13:-12)*u,{align:low?'left':'right',col:'#1e6472'});
+    }
+  }
   // 귀환 경로 (끊겼으면 가장 가까운 안전한 높은 곳까지의 길을 푸른 점선으로)
   const ret = G.ret, show = SET.mapShow;
   const routePath = (path, col) => {
@@ -8937,7 +9080,8 @@ function updateObjective(force) {
     return;
   }
   if (G.islet) {
-    const html = '외딴섬의 보물을 찾아 <b>나룻배</b>로 돌아오세요<span class="sub">부두 언덕의 상자는 안전하고, 낮은 모래길은 먼저 잠겨요.</span>';
+    const detail = SAVE.tideVault.clue ? '부두 언덕의 상자는 안전하고, 낮은 모래길은 먼저 잠겨요.' : '부두 옆 언덕의 망원경으로 본섬을 살펴볼 수 있어요.';
+    const html = `외딴섬의 보물을 찾아 <b>나룻배</b>로 돌아오세요<span class="sub">${detail}</span>`;
     if (force || html !== UI.lastObj) { UI.lastObj = html; $('objective').innerHTML = html; $('objective').classList.remove('warn'); }
     return;
   }
@@ -8954,6 +9098,10 @@ function updateObjective(force) {
   else if (!SAVE.clue) { main = '동쪽 모래톱 너머 <b>난파선</b>을 조사해 보세요'; sub = '모래톱은 섬에서 가장 먼저 잠겨요'; }
   else { main = `유적의 <b>핵심 유물</b>을 모으세요 (${relicCount()}/3)`; sub = nextRelicHint(); }
   const signal = signalState();
+  if (vaultActive() && SAVE.tideVault.clue && !SAVE.tideVault.claimed) {
+    sub = vaultArmed() ? (vaultOpen() ? '조수 금고가 열렸어요 · 큰 지도(M)에서 위치 확인' : '밀물을 기다리는 중 · 높은 곳의 조수 금고로 이동')
+      : (U_LEVEL.v >= vaultValveDeadline() ? '수문이 잠겼어요 · 다음 썰물에 흰 파도 수문 열기' : '큰 지도(M)의 흰 파도 수문을 썰물에 열어 보세요');
+  }
   if (signal === 'accepted') sub = `📡 구조 신호 · 지도에서 수색 범위 확인 · 남은 시간 ${fmtTime(signalDeadline() - G.time)}`;
   if (signal === 'activated') sub = '📡 신호 전송 완료 · 항구 의뢰 탭에서 보상을 받으세요';
   if (G.clock && !G.inPort && G.ret.ok && G.ret.margin < 25 && rescueFee() > 0) sub = `⚠ 지금 돌아가지 않으면 구조비 ${rescueFee()} G를 내야 해요`;
@@ -10065,7 +10213,7 @@ function showEnding(first) {
    ========================================================= */
 const tick = () => new Promise(r => setTimeout(r, 0));
 // 빌드 식별자: 어떤 판을 실행 중인지 확인용 (화면 구석·설정·콘솔에만 표시, 저장·규칙과 무관)
-const BUILD_ID = 'Sinking Island build 2026-11-islet-journal';
+const BUILD_ID = 'Sinking Island build 2026-11-tide-vault';
 async function boot() {
   const say = t => { $('loadText').textContent = t; };
   loadSettings();
@@ -10105,6 +10253,7 @@ async function boot() {
   withOwnRng(7014, buildVoyageMarks);
   withOwnRng(7015, buildCaveBranches);
   withOwnRng(7016, buildOutlyingIsland);
+  withOwnRng(7017, buildTideVault);
   buildShoreTex();
   syncNightCave();
   expInit();
