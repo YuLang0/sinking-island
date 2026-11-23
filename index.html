@@ -10,31 +10,12 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sea);color:var(-
 #vignette{position:fixed;inset:0;pointer-events:none;z-index:1;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 55%,rgba(2,22,30,.32) 100%)}
 /* HUD */
 #hud{position:fixed;inset:0;pointer-events:none;z-index:5}
-#hudTop{display:contents}
 #c.fp-aim{cursor:none!important}
 #fpReticle{position:absolute;left:50%;top:50%;width:7px;height:7px;transform:translate(-50%,-50%);background:#fff4cf;border:1px solid #2c4144;border-radius:50%;box-shadow:0 0 5px #112932;pointer-events:none}
-#tidePanel{position:absolute;left:calc(14px + var(--safe-l));top:calc(14px + var(--safe-t));width:330px}
-.tideActions{display:flex;gap:6px}
-.tideActions button{margin-top:6px}
-body:not(.touch) #btnView,body:not(.touch) #title #btnViewEdition{display:none}
-#btnView,#btnHarborFinish{pointer-events:auto;padding:0 8px;min-height:36px;border:1px solid #90d5c3;border-radius:8px;background:#214d52;color:#f3fff6;font:inherit;font-weight:700;cursor:pointer}
-#btnHarborFinish{flex:1}
-#btnView:hover,#btnHarborFinish:hover{background:#306368}
-#tideTop{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700}
-#tidePhase{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-#tideTime{font-size:21px;font-variant-numeric:tabular-nums;white-space:nowrap;flex:none}
-#tideTime small{font-size:12px;font-weight:500;opacity:.8;margin-right:4px}
-#tideGauge{position:relative;height:12px;margin:8px 0 5px;border-radius:6px;background:#173f4f;overflow:visible}
-#tideFill{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:linear-gradient(90deg,#8fe6d6,#2bb0b5)}
-.tmark{position:absolute;top:-3px;width:2px;height:18px;background:var(--white);opacity:.85}
-.tmark.done{background:var(--bad);opacity:.7}
-.tmark.late{opacity:.35;height:12px;top:0}
-#nextFlood,#returnStat{font-size:13px;margin-top:5px;line-height:1.45}
 #returnStat.pulse{animation:rpulse 1.6s ease-out}
 @keyframes rpulse{0%,30%,60%{transform:scale(1.04);filter:brightness(1.5)}15%,45%,100%{transform:none;filter:none}}
 .tag{display:inline-block;padding:1px 7px;border-radius:6px;font-weight:700;margin-right:5px;font-size:12px}
 .st-ok{background:#2f7d4a}.st-mid{background:#8a6d12}.st-hi{background:#b4521f}.st-bad{background:#a32626}.st-safe{background:#245f8a}
-#statusPanel{position:absolute;right:calc(14px + var(--safe-r));top:calc(14px + var(--safe-t));display:flex;gap:8px;align-items:center}
 /* 방향 표지판을 대신하는 화면 나침반. 카메라가 돌아가도 북쪽을 가리킨다. */
 #hudCompass{position:absolute;right:0;top:calc(100% + 20px);width:116px;height:116px;pointer-events:none;filter:drop-shadow(0 4px 10px rgba(0,0,0,.32))}
 #hudCompass svg{display:block;width:100%;height:100%;overflow:visible}
@@ -54,14 +35,6 @@ body:not(.touch) #btnView,body:not(.touch) #title #btnViewEdition{display:none}
   .compassDir{font-size:9px}
   .compassLegend{font-size:8px}
 }
-#goldBox,#relicBox{font-weight:700;font-size:15px;white-space:nowrap}
-.ibtns{display:flex;gap:8px}
-#relicBox i{font-style:normal;letter-spacing:2px}
-.iconbtn{pointer-events:auto;cursor:pointer;background:var(--panel);border:1px solid rgba(255,255,255,.18);color:var(--white);border-radius:10px;width:38px;height:38px;font-size:16px;display:flex;align-items:center;justify-content:center}
-.iconbtn:focus-visible,.btn:focus-visible,.tab:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
-#objective{position:absolute;left:50%;top:calc(14px + var(--safe-t));transform:translateX(-50%);max-width:min(440px,34vw);text-align:center;font-size:14px;line-height:1.45}
-#objective b{color:var(--gold)}
-#objective .sub{display:block;font-size:12px;opacity:.8;margin-top:2px}
 #minimapWrap{position:absolute;left:calc(14px + var(--safe-l));bottom:calc(14px + var(--safe-b));width:178px;height:178px;padding:6px}
 #minimap{width:100%;height:100%;border-radius:8px;display:block}
 #bagPanel{position:absolute;right:calc(14px + var(--safe-r));bottom:calc(14px + var(--safe-b));width:276px;pointer-events:auto;cursor:pointer}
@@ -86,41 +59,14 @@ body:not(.touch) #btnView,body:not(.touch) #title #btnViewEdition{display:none}
   #gBody .guideArt{width:42%;float:right;margin:0 0 10px 18px}
   .gDetail{clear:both}#gBody .gBrief{font-size:14px}
 }
-@media (max-height:720px){#minimapWrap{width:146px;height:146px}#title h1{font-size:62px}#tidePanel{width:312px}}
-@media (max-width:1180px) and (min-width:981px){#relicBox span{display:none}}
-@media (max-width:980px){#objective{top:calc(150px + var(--safe-t));max-width:70vw}#toasts{top:calc(230px + var(--safe-t))}}
+@media (max-height:720px){#minimapWrap{width:146px;height:146px}#title h1{font-size:62px}}
 /* ===== 휴대폰 세로 화면 (폭 720px 이하이면서 세로이거나 높이 501px 이상) =====
    위: 물때 → 돈·유물·버튼 → 지금 할 일을 한 줄기로 쌓음 (서로 겹치지 않음). 안내 문구·알림은 그 바로 아래 (placeFeed)
    가운데: 캐릭터가 보이도록 비워 둠
    아래: 미니맵(왼쪽)·가방(오른쪽). 터치 화면이면 그 아래 엄지 자리에 조이스틱·달리기·E 버튼
    메뉴·창: 아래에서 올라오는 시트 */
 @media (max-width:720px) and (min-height:501px),(max-width:720px) and (orientation:portrait){
-  #hudTop{display:flex;flex-direction:column;gap:6px;position:absolute;left:calc(10px + var(--safe-l));right:calc(10px + var(--safe-r));top:calc(8px + var(--safe-t))}
-  #hudTop>#tidePanel,#hudTop>#statusPanel,#hudTop>#objective{position:relative;left:auto;right:auto;top:auto;transform:none;width:auto;max-width:none}
-  #tidePanel{order:1;display:flex;flex-direction:column;padding:8px 12px 9px}
-  #tideTop{order:1}#tideGauge{order:2;height:8px;margin:7px 0 6px}#returnStat{order:3}#nextFlood{order:4}
-  #tidePhase{font-size:13.5px}#tideTime{font-size:19px}#tideTime small{font-size:11px}
-  .tpl .tchip{font-size:11px;padding:1px 6px}
-  .tmark{height:14px}.tmark.late{height:8px}
-  #returnStat{font-size:12.5px;margin-top:0;line-height:1.5}#returnStat .lng{display:none}#returnStat .rm{font-weight:700}
-  #nextFlood{display:flex;font-size:11.5px;margin-top:2px;line-height:1.45;opacity:.88}
-  #nextFlood .nfz{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}#nextFlood .nft{flex:none;white-space:nowrap;padding-left:.25em}
-  #statusPanel{order:2;flex-direction:row;align-items:stretch;gap:6px}
-  #goldBox,#relicBox{display:flex;align-items:center;height:38px;padding:0 12px;font-size:14px}
-  #relicBox span{display:none}
-  .ibtns{display:flex;gap:6px;margin-left:auto}
-  .iconbtn{width:38px;height:38px;border-radius:12px;font-size:16px}
-  #savedBadge{top:auto;bottom:calc(100% + 11px);right:8px;font-size:11px;padding:2px 8px;background:rgba(31,90,58,.92)}
-  #objective{order:3;text-align:left;font-size:13px;line-height:1.45;padding:7px 12px}
-  #objective .sub{font-size:11.5px;margin-top:1px}
-  #hudTop.objmini{display:grid;grid-template-columns:38px minmax(0,1fr);gap:6px}
-  #hudTop.objmini>#tidePanel{grid-column:1/-1;grid-row:1}
-  #hudTop.objmini>#objective{grid-column:1;grid-row:2;width:38px}
-  #hudTop.objmini>#statusPanel{grid-column:2;grid-row:2}
-  /* 알림: 목표 카드 자리에 잠깐 (최근 2개만), 안내 문구: 그 아래 */
-  #hint{top:calc(var(--hint-top,200px) / var(--ui));bottom:auto;width:max-content;max-width:calc((100vw - 20px - var(--safe-l) - var(--safe-r)) / var(--ui));font-size:13px;line-height:1.45;padding:7px 12px}
-  #toasts{top:calc(var(--toast-top,150px) / var(--ui));width:calc((100vw - 20px - var(--safe-l) - var(--safe-r)) / var(--ui));gap:4px}
-  .toast{font-size:13px;padding:6px 12px;white-space:normal;max-width:100%;text-align:center}
+  .toast{font-size:12px;padding:6px 10px}
   #toasts .toast:nth-last-child(n+3){display:none}
   /* 아래: 미니맵·가방 (터치 화면이면 조작 버튼 위로 올림. 위치는 화면 정보 크기 배율과 상관없이 같은 자리) */
   #minimapWrap{left:calc(12px + var(--safe-l));bottom:calc((12px + var(--safe-b)) / var(--ui-hud,1));width:120px;height:120px;padding:5px}
@@ -145,23 +91,7 @@ body:not(.touch) #btnView,body:not(.touch) #title #btnViewEdition{display:none}
    왼쪽 위 물때, 오른쪽 위 돈·유물·버튼 한 줄, 그 사이 아래에 지금 할 일과 안내·알림
    왼쪽 아래 미니맵(그 아래 조이스틱), 오른쪽 아래 가방(그 아래 달리기·E 버튼). 가운데는 비워 둠 */
 @media (max-height:500px) and (orientation:landscape){
-  #tidePanel{display:flex;flex-direction:column;width:min(272px,34vw);padding:6px 10px 7px}
-  #tideTop{order:1}#tideGauge{order:2;height:8px;margin:5px 0 4px}#returnStat{order:3}#nextFlood{order:4}
-  #tideTime{font-size:16px}#tideTime small{display:none}#tidePhase{font-size:13px}
-  .tmark{height:14px}.tmark.late{height:8px}
-  #returnStat{font-size:11.5px;margin-top:0;line-height:1.45}#returnStat .lng{display:none}#returnStat .rm{font-weight:700}
-  #nextFlood{display:flex;font-size:11px;margin-top:2px;line-height:1.4;opacity:.88}
-  #nextFlood .nfz{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}#nextFlood .nft{flex:none;white-space:nowrap;padding-left:.25em}
-  #statusPanel{gap:5px;align-items:stretch}
-  #goldBox,#relicBox{display:flex;align-items:center;height:34px;padding:0 10px;font-size:13px}#relicBox span{display:none}
-  .ibtns{gap:5px}.iconbtn{width:34px;height:34px;font-size:14px;border-radius:10px}
-  /* 목표 카드: 물때 카드 오른쪽, 돈·버튼 줄 아래 가운데 */
-  #objective{top:calc(50px + var(--safe-t));left:calc(20px + var(--safe-l) + min(272px,34vw));right:calc(10px + var(--safe-r));width:fit-content;max-width:none;margin:0 auto;transform:none;font-size:12px;padding:6px 10px}#objective .sub{display:none}
-  #objective.mini{top:calc(8px + var(--safe-t));right:auto;margin:0}
-  #hint,#toasts{left:calc(50% + (var(--safe-l) + min(272px,34vw) * var(--ui-hud,1) + 10px - var(--safe-r)) / (2 * var(--ui)))}
-  #hint{top:calc(var(--hint-top,84px) / var(--ui));bottom:auto;font-size:12px;padding:6px 11px;width:max-content;max-width:calc((100vw - 34px - var(--safe-l) - var(--safe-r) - min(272px,34vw) * var(--ui-hud,1)) / var(--ui))}
-  #toasts{top:calc(var(--toast-top,50px) / var(--ui));gap:4px}
-  .toast{font-size:12px;padding:5px 11px}
+  .toast{font-size:11.5px;padding:5px 9px}
   #toasts .toast:nth-last-child(n+3){display:none}
   #minimapWrap{left:calc(10px + var(--safe-l));bottom:calc((12px + var(--safe-b)) / var(--ui-hud,1));width:104px;height:104px;padding:4px}
   #minimapWrap .mmhint{display:none}
@@ -186,21 +116,7 @@ body:not(.touch) #btnView,body:not(.touch) #title #btnViewEdition{display:none}
   #pmFoot .btn{flex:1 1 auto}
   .pmHead h2{margin-bottom:4px}
   #result .menu,#ending .menu{position:sticky;bottom:calc(-1 * var(--pp-b,22px));z-index:2;background:var(--paper);margin:12px calc(-1 * var(--pp-x,24px)) calc(-1 * var(--pp-b,22px))!important;padding:10px var(--pp-x,24px) var(--pp-b,22px);border-top:1px solid #eadfc6;width:auto}
-  #objective{transition:opacity .2s;pointer-events:auto;cursor:pointer}
-  body:has(#toasts>.toast:not(.out)) #hud #objective:not(.mini){opacity:0}
   #hint{cursor:pointer}
-  /* 지금 할 일 카드를 접으면 🎯 아이콘만 (새 내용이 생기면 노란 점, 구조비 경고면 주황 테두리) */
-  #objective.mini{width:38px;height:38px;padding:0;font-size:0;line-height:0;display:flex;align-items:center;justify-content:center;flex:none;margin:0}
-  #objective.mini::before{content:'🎯';font-size:17px;line-height:1}
-  #objective.mini .sub{display:none}
-  #objective.mini.new::after{content:'';position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 2px rgba(9,34,42,.9)}
-  #objective.mini.warn{border-color:var(--warn);box-shadow:0 0 0 2px rgba(255,179,71,.55),0 6px 18px rgba(0,0,0,.28)}
-  #hud .card,#prompt,#hint,.toast{background:linear-gradient(180deg,rgba(14,46,57,.9),rgba(7,29,37,.86));border:1px solid rgba(255,255,255,.14);border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.28)}
-  #hint{border-left:4px solid var(--teal)}
-  .toast.warn{border-left:4px solid var(--warn)}.toast.bad{border-left:4px solid var(--bad)}.toast.good{border-left:4px solid var(--ok)}.toast.info{border-left:4px solid var(--teal)}
-  .toast.ach{border-left:4px solid var(--gold);background:linear-gradient(90deg,rgba(90,66,8,.94),rgba(9,34,42,.9))}
-  #goldBox{color:#ffe7a0}
-  .iconbtn{background:linear-gradient(180deg,rgba(14,46,57,.9),rgba(7,29,37,.86));border-color:rgba(255,255,255,.16);box-shadow:0 4px 12px rgba(0,0,0,.25)}
 }
 /* 키보드가 없는 휴대폰·태블릿: 조작 키 바꾸기는 쓸 수 없으므로 숨김 (터치 노트북처럼 마우스·키보드가 있으면 그대로) */
 @media (hover:none) and (pointer:coarse){.keysec{display:none}}
@@ -225,6 +141,194 @@ body.touch #tAct[data-st="idle"]{opacity:.62}
 }
 
 @media (prefers-reduced-motion:reduce){#danger,#imark span,.toast,#banner,#prompt.pop,#bagPanel.shake,#goldBox.bump,#returnStat.pulse,#bagPanel.flash,.toast.bump,.keylist .btn.wait,#notice,.up.bought,#tRun.on,.bubble,.endpanel,.endgems .gd,.screen.dim>.panel{animation:none}.slot{transition:none}.ftext{animation-duration:.01s}}
+/* 탐험 HUD */
+#hudTop{
+  position:absolute;inset:calc(14px + var(--safe-t)) calc(14px + var(--safe-r)) auto calc(14px + var(--safe-l));
+  display:grid;grid-template-columns:minmax(220px,304px) minmax(0,1fr) auto;
+  grid-template-areas:"tide objective tools";align-items:start;gap:10px
+}
+#hud .card,#prompt,#hint,.toast{
+  background:#102c35f2;border:1px solid #a2c5c33d;border-radius:13px;
+  box-shadow:0 5px 18px #06161e54;color:#f5f5e9
+}
+#hud .card:focus-visible,#mapQuestPin:focus-visible,.mtog:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
+#tidePanel{grid-area:tide;min-width:0;padding:11px 12px 10px;--water-accent:#8be0da}
+#tidePanel[data-phase="soon"]{--water-accent:#ffcf80}
+#tidePanel[data-phase="surge"]{--water-accent:#ffada0}
+#tideTop{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}
+.tideState{min-width:0}
+#tidePhase{display:block;color:var(--water-accent);font-size:15px;font-weight:800;line-height:1.25;overflow-wrap:anywhere}
+.tideMeta{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:4px}
+.tideMeta .tchip{font-size:10px;line-height:1.45;padding:1px 6px;margin:0}
+.tideCountdown{display:flex;align-items:flex-end;flex-direction:column;gap:2px;padding-left:10px;border-left:1px solid #a2c5c331;white-space:nowrap}
+#tideTimeLabel{color:#bfd0ce;font-size:10px;line-height:1.2}
+#tideTime{color:var(--water-accent);font-size:27px;font-variant-numeric:tabular-nums;letter-spacing:-.045em;line-height:1}
+#tideGauge{position:relative;height:6px;margin:11px 0 9px;border-radius:5px;background:#2c4b54}
+#tideFill{position:absolute;inset:0 auto 0 0;border-radius:5px;background:var(--water-accent);box-shadow:0 0 8px #84e0d744}
+.tmark{position:absolute;top:-2px;width:1px;height:10px;background:#bcd2d4;opacity:.8}
+.tmark.done{background:#ffada0;opacity:1}
+.tmark.late{opacity:.4;height:6px;top:0}
+#nextFlood{display:flex;align-items:baseline;gap:6px;margin-top:7px;font-size:11.5px;line-height:1.4;color:#bdd0cf}
+#nextFlood[hidden],#btnHarborFinish[hidden]{display:none}
+#nextFlood[data-soon="true"]{color:#ffd692}
+#nextFlood .floodName{min-width:0}
+#nextFlood strong{margin-left:auto;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:800;color:inherit}
+#returnStat{padding:7px 8px;min-width:0;background:#0b222b;border:1px solid #9dbec326;border-radius:8px;color:#e3ebe5}
+.returnReadout{display:flex;flex-wrap:wrap;align-items:center;gap:3px 7px;font-size:12px;line-height:1.45}
+.returnReadout .tag{font-size:10px;margin:0;color:#fff;flex:none}
+.returnReadout .returnMessage{min-width:0;flex:1 1 104px;overflow-wrap:anywhere}
+.returnReadout .returnMetric{display:inline-flex;align-items:baseline;gap:4px;white-space:nowrap}
+.returnMetric b{font-variant-numeric:tabular-nums}
+#returnStat .returnMargin{margin-left:auto}
+#returnStat .returnMargin b{color:#ade5b8}
+#returnStat .st-mid ~ .returnMargin b,#returnStat .st-hi ~ .returnMargin b{color:#ffd692}
+#returnStat .st-bad ~ .returnMargin b{color:#ffada0}
+.tideActions{display:flex;gap:6px}
+.tideActions button{margin-top:8px}
+body:not(.touch) #btnView,body:not(.touch) #title #btnViewEdition{display:none}
+#btnView,#btnHarborFinish{pointer-events:auto;min-height:36px;padding:0 9px;border:1px solid #75a5ab75;border-radius:8px;background:#20464c;color:#f5f5e9;font:700 12px var(--f-body);cursor:pointer}
+#btnHarborFinish{flex:1;background:#f4d483;color:#292c25;border-color:#f4d483}
+#btnView:hover{background:#2a5860}
+#btnHarborFinish:hover{background:#ffe2a0}
+#statusPanel{grid-area:tools;position:relative;justify-self:end;min-width:0;display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.hudProgress{min-width:0;display:flex;align-items:stretch;padding:0;white-space:nowrap}
+#goldBox,#relicBox{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:800;min-height:38px;padding:0 9px}
+#goldBox{color:#ffe1a0;font-variant-numeric:tabular-nums}
+#goldBox .goldIcon{color:#eac779;font-size:12px}
+#relicBox{border-left:1px solid #a2c5c33b;color:#e8eddf}
+#relicBox i{font-style:normal;color:#97dcd2;letter-spacing:.06em}
+.ibtns{display:flex;gap:5px;margin-left:auto}
+.iconbtn{
+  pointer-events:auto;cursor:pointer;color:#f2f9f3;background:#102c35f2;border:1px solid #a2c5c353;
+  border-radius:9px;min-width:38px;height:40px;font:700 13px var(--f-body);
+  display:flex;align-items:center;justify-content:center;padding:0 8px
+}
+.iconbtn:hover{background:#224853}
+.iconbtn:focus-visible,.btn:focus-visible,.tab:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+#objective{
+  grid-area:objective;min-width:0;width:min(100%,400px);justify-self:center;position:relative;cursor:pointer;
+  pointer-events:auto;padding:8px 11px 9px;text-align:left;font:inherit;line-height:1.4
+}
+.goalHead{display:flex;justify-content:space-between;align-items:center;gap:12px;color:#aed2ce;font-size:10.5px;font-weight:800}
+.goalHead i::before{content:'';display:block;width:6px;height:6px;border:solid #aed2ce;border-width:0 1.5px 1.5px 0;transform:translateY(2px) rotate(225deg)}
+#objective.mini .goalHead i::before{transform:translateY(-2px) rotate(45deg)}
+#objective.mini{width:max-content}
+#objective.mini .goalBody{display:none}
+#objective.mini.new .goalHead>span::after{content:'';display:inline-block;width:6px;height:6px;margin-left:5px;border-radius:50%;background:var(--gold);vertical-align:2px}
+#hud #objective.warn{border-color:#ffb068;box-shadow:0 0 0 1px #ffb06855,0 5px 18px #06161e54}
+.goalBody{display:block;margin-top:3px;font-size:13.5px}
+.goalBody b{color:#ffe0a0}
+.goalBody .sub{display:block;font-size:11.5px;color:#c6d9d5;margin-top:3px;overflow-wrap:anywhere}
+.goalBody .goalBonus{color:#afe0ba}
+#prompt{
+  white-space:normal;text-align:center;width:max-content;
+  max-width:calc(min(470px,100vw - 24px - var(--safe-l) - var(--safe-r)) / var(--ui))
+}
+#prompt .key{background:#f2d999;border-radius:4px}
+#prompt .sub{display:block;margin:3px 0 0;color:#d2e4e1;opacity:1}
+#prompt.no{opacity:1;border-color:#d0ae666e}
+#minimapWrap{display:block;appearance:none;color:inherit}
+#minimapWrap .mmhint{display:block;background:#0d2632eb;border:1px solid #adc4c23a;color:#f0f9f3;opacity:1}
+#bagPanel{width:238px}
+#bagPanel .row>b{font-size:14px}
+#bagItems{overflow-wrap:anywhere}
+#stamFill{background:#8cd5ac}
+#stamFill.ex{background:#ff8e77}
+#toasts{
+  top:calc(var(--feed-top,128px) / var(--ui));left:calc(var(--feed-center,50vw) / var(--ui));
+  width:calc(var(--feed-width, min(560px,100vw - 28px)) / var(--ui))
+}
+.toast{white-space:normal;max-width:100%;text-align:center}
+.toast.info{border-left:3px solid var(--teal)}.toast.good{border-left:3px solid var(--ok)}
+.toast.warn{border-left:3px solid var(--warn)}.toast.bad{border-left:3px solid var(--bad)}.toast.ach{border-left:3px solid var(--gold)}
+@media(max-width:1080px){
+  #hudTop{grid-template-columns:minmax(175px,284px) minmax(0,1fr);grid-template-areas:"tide tools" "tide objective";row-gap:6px}
+  #objective{justify-self:end}
+  #hudCompass{top:calc(100% + var(--compass-gap,98px))}
+  #savedBadge{top:calc(100% + var(--compass-gap,98px));right:124px;white-space:nowrap}
+}
+@media (max-width:720px) and (min-height:501px),(max-width:720px) and (orientation:portrait){
+  #hudTop{inset:calc(8px + var(--safe-t)) calc(10px + var(--safe-r)) auto calc(10px + var(--safe-l));grid-template-columns:minmax(0,1fr);grid-template-areas:"tide" "tools" "objective";gap:6px}
+  #statusPanel,#objective:not(.mini){width:100%}
+  #savedBadge{right:92px;font-size:11px;padding:2px 8px}
+  #objective{justify-self:start}
+  #tidePanel{padding:8px 10px}
+  #tidePhase{font-size:14px}
+  #tideTime{font-size:23px}
+  #tideGauge{margin:8px 0 7px}
+  #goldBox,#relicBox{padding:0 7px;min-height:36px}
+  .iconbtn{height:38px;padding:0 6px;line-height:1.2}
+  #bagPanel{width:min(206px,calc(100vw - 147px - var(--safe-l) - var(--safe-r)))}
+  #hint{width:max-content;max-width:calc((100vw - 20px - var(--safe-l) - var(--safe-r)) / var(--ui));top:calc(var(--hint-top,230px) / var(--ui));bottom:auto;font-size:12px;padding:7px 11px}
+}
+@media(max-width:380px){
+  #statusPanel,.ibtns{gap:4px}
+  #relicBox i{display:none}
+  #goldBox,#relicBox{padding-inline:6px;font-size:12px}
+  .iconbtn{min-width:33px;padding-inline:4px;font-size:12px}
+}
+@media(max-height:500px) and (orientation:landscape){
+  #hudTop{inset:calc(8px + var(--safe-t)) calc(10px + var(--safe-r)) auto calc(10px + var(--safe-l));grid-template-columns:minmax(133px, min(254px,34vw)) minmax(0,1fr);grid-template-areas:"tide tools" "tide objective";gap:5px 8px}
+  #tidePanel{padding:6px 8px}
+  #tidePhase{font-size:12px}
+  #tideTime{font-size:21px}
+  .tideMeta .tchip{font-size:9px;padding:1px 4px}
+  .tideCountdown{padding-left:6px}
+  #tideTimeLabel{font-size:9px}
+  #tideGauge{margin:6px 0}
+  #returnStat{padding:4px 5px}
+  .returnReadout{font-size:11px;gap:2px 4px}
+  #nextFlood{margin-top:4px;font-size:10.5px}
+  .tideActions button{margin-top:4px}
+  #btnView,#btnHarborFinish{min-height:30px;font-size:11px}
+  #statusPanel{gap:5px}
+  .iconbtn{min-width:34px;height:34px;padding:0 5px}
+  #goldBox,#relicBox{min-height:32px;padding:0 6px;font-size:12px}
+  #objective{padding:5px 8px}
+  #objective .goalBody{font-size:12px}
+  #objective .goalBody .sub{font-size:10.5px;margin-top:1px}
+  #hudCompass,#savedBadge{top:calc(100% + var(--compass-gap,72px))}
+  #savedBadge{right:80px;font-size:11px;padding:2px 7px}
+  #hint{
+    left:calc(var(--feed-center,66vw) / var(--ui));top:calc(var(--hint-top,155px) / var(--ui));bottom:auto;
+    width:max-content;max-width:calc(var(--feed-width,300px) / var(--ui));font-size:11px;padding:5px 9px
+  }
+  #bagPanel{width:200px}
+}
+
+/* 큰 지도 */
+.mapHead{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;padding-bottom:8px;border-bottom:1px solid #d8caa9}
+.mapHead h2{font-size:24px}
+.mapPaused{justify-self:start;color:#526159;opacity:1;font-size:12px}
+#btnMapClose{min-height:36px;margin:0}
+.mapToggles{grid-column:1/-1}
+.mtog{min-height:30px;background:#29524e;border-color:#29524e}
+.mtog[aria-pressed="false"]{background:#fff9ec;border-color:#b1b6a8;color:#3f5852;opacity:1;text-decoration:none}
+.mapPinTools{min-height:30px;margin:0 0 9px;color:#4b5362}
+.mapSide{background:#f5ead3;border:1px solid #dbc9a4;border-radius:12px;padding:10px 11px}
+.mtide{justify-content:space-between;gap:3px 8px}
+.mret{margin-top:8px;padding:7px 8px;border:1px solid #d8c38e;background:#fff4d6}
+.mapSide .mdesc{opacity:1;color:#505a4b}
+#mapQuest{
+  display:flex;align-items:center;justify-content:space-between;gap:7px 10px;flex-wrap:wrap;
+  margin:0 0 10px;padding:8px 10px;background:#e6f0e6;border:1px solid #a6c3b1;border-radius:10px
+}
+#mapQuest[hidden]{display:none}
+.mapQuestText{flex:1 1 160px;min-width:0}
+.mapQuestText b{font-size:13px;color:#174638}
+.mapQuestText p{margin:2px 0 0;font-size:12px;line-height:1.4;color:#31534b}
+#mapQuestPin{padding:6px 9px;font-size:12px;margin:0;min-height:34px;white-space:nowrap}
+#mapQuestPin[aria-pressed="true"]{background:#d5e6dc;color:#174638}
+@media(max-width:720px) and (min-height:501px),(max-width:720px) and (orientation:portrait){
+  #mapView .mapHead{position:sticky;top:calc(-1 * var(--pp-t));z-index:2;background:var(--paper);margin-inline:calc(-1 * var(--pp-x));padding:7px var(--pp-x);margin-bottom:8px}
+  .mapHead h2{font-size:20px}
+  .mapSide{width:100%}
+  .mapPaused{display:block;font-size:10.5px}
+  .mapCanvasWrap{width:100%}
+}
+@media(max-height:500px) and (orientation:landscape){
+  .mapCanvasWrap{width:min(53%,calc(100vh - 106px))}
+}
 </style>
 </head>
 <body>
@@ -244,22 +348,32 @@ body.touch #tAct[data-st="idle"]{opacity:.62}
 <div id="hud" class="hidden">
   <div id="hudTop">
   <div id="tidePanel" class="card">
-    <div id="tideTop"><span class="tpl"><span id="tideDay" class="tchip normal">🌊 보통</span><span id="tideWx" class="tchip wx hidden"></span><span id="tidePhase">🌊 간조</span></span><span id="tideTime">5:00</span></div>
-    <div id="tideGauge"><div id="tideFill"></div><div id="tideMarks"></div></div>
-    <div id="nextFlood"></div>
-    <div id="returnStat"></div>
+    <div id="tideTop">
+      <div class="tideState">
+        <strong id="tidePhase">출항 준비</strong>
+        <div class="tideMeta"><span id="tideDay" class="tchip normal">보통</span><span id="tideWx" class="tchip wx hidden"></span></div>
+      </div>
+      <div class="tideCountdown"><span id="tideTimeLabel">만조까지</span><strong id="tideTime">5:00</strong></div>
+    </div>
+    <div id="tideGauge" aria-hidden="true"><div id="tideFill"></div><div id="tideMarks"></div></div>
+    <div id="returnStat" class="returnReadout"></div>
+    <div id="nextFlood" hidden></div>
     <div class="tideActions"><button type="button" id="btnView" aria-label="시점 전환">3인칭</button><button type="button" id="btnHarborFinish" hidden>오늘 탐험 마치기</button></div>
   </div>
-  <div id="objective" class="card"></div>
-  <div id="fpReticle" hidden aria-hidden="true"></div>
+  <button type="button" id="objective" class="card" aria-expanded="true" aria-controls="objectiveBody">
+    <span class="goalHead"><span>지금 할 일</span><i aria-hidden="true"></i></span>
+    <span class="goalBody" id="objectiveBody"></span>
+  </button>
   <div id="statusPanel">
-    <div class="card" id="goldBox">💰 0 G</div>
-    <div class="card" id="relicBox"><i>◇◇◇</i> <span>유물 0/3</span></div>
-    <div class="ibtns">
-      <button class="iconbtn" id="btnMap" title="섬 지도 (M)" aria-label="섬 지도">🗺</button>
-      <button class="iconbtn" id="btnMute" title="음소거" aria-label="음소거">🔊</button>
-      <button class="iconbtn" id="btnHelp" title="플레이 방법 (H)" aria-label="플레이 방법">❓</button>
-      <button class="iconbtn" id="btnPause" title="일시정지 (Esc)" aria-label="일시정지">⏸</button>
+    <div class="card hudProgress">
+      <div id="goldBox"><span class="goldIcon" aria-hidden="true">●</span><span id="goldValue">0 G</span></div>
+      <div id="relicBox"><i aria-hidden="true">◇◇◇</i> <span>유물 0/3</span></div>
+    </div>
+    <div class="ibtns" role="group" aria-label="플레이 도구">
+      <button type="button" class="iconbtn" id="btnMap" title="섬 지도 (M)" aria-label="섬 지도">지도</button>
+      <button type="button" class="iconbtn" id="btnHelp" title="플레이 방법 (H)" aria-label="플레이 방법">도움말</button>
+      <button type="button" class="iconbtn" id="btnMute" title="음소거" aria-label="음소거" aria-pressed="false">🔊</button>
+      <button type="button" class="iconbtn" id="btnPause" title="일시정지 (Esc)" aria-label="일시정지">Ⅱ</button>
     </div>
     <div id="savedBadge" role="status" aria-live="polite"></div>
     <div id="hudCompass" role="img" aria-label="나침반: 붉은 N은 북쪽, 얼굴 표시는 내가 바라보는 방향. 북쪽 유적, 동쪽 해변과 난파선, 서쪽 능선, 남쪽 항구.">
@@ -284,8 +398,9 @@ body.touch #tAct[data-st="idle"]{opacity:.62}
     </div>
   </div>
   </div>
-  <div id="minimapWrap" class="card" title="눌러서 큰 지도 보기 (M)"><canvas id="minimap" width="166" height="166"></canvas><span class="mmhint">🗺 M</span></div>
-  <div id="bagPanel" class="card">
+  <div id="fpReticle" hidden aria-hidden="true"></div>
+  <button type="button" id="minimapWrap" class="card" title="눌러서 큰 지도 보기 (M)" aria-label="큰 지도 열기"><canvas id="minimap" width="166" height="166" aria-hidden="true"></canvas><span class="mmhint">지도 M</span></button>
+  <div id="bagPanel" class="card" role="button" tabindex="0" aria-label="가방 열기">
     <div class="row"><b>🎒 가방</b><span id="bagLabel">0 / 8칸</span></div>
     <div id="bagSlots"></div>
     <div id="bagItems"></div>
@@ -310,8 +425,14 @@ body.touch #tAct[data-st="idle"]{opacity:.62}
 </div></div>
 
 <div id="mapView" class="screen dim hidden"><div class="panel mapPanel">
-  <div class="mapHead"><h2>🗺 섬 지도</h2><span class="mapPaused">⏸ 지도를 보는 동안 시간이 멈춰요</span><button class="btn small" id="btnMapClose">닫기 (M)</button>
-    <div class="mapToggles" role="group" aria-label="지도에 표시할 것"><span>표시</span><button class="mtog" data-layer="relic" aria-pressed="true">◆ 유물</button><button class="mtog" data-layer="item" aria-pressed="true">● 발견한 보물</button><button class="mtog" data-layer="route" aria-pressed="true">┅ 귀환 경로</button></div></div>
+  <div class="mapHead">
+    <h2>섬 지도</h2><span class="mapPaused">시간 일시정지</span><button type="button" class="btn small" id="btnMapClose">닫기 (M)</button>
+    <div class="mapToggles" role="group" aria-label="지도에 표시할 것"><button type="button" class="mtog" data-layer="relic" aria-pressed="true">◆ 유물</button><button type="button" class="mtog" data-layer="item" aria-pressed="true">● 발견한 보물</button><button type="button" class="mtog" data-layer="route" aria-pressed="true">┅ 귀환 경로</button></div>
+  </div>
+  <div id="mapQuest" hidden>
+    <div class="mapQuestText"><b id="mapQuestTitle"></b><p id="mapQuestDetail"></p></div>
+    <button type="button" class="btn small" id="mapQuestPin" aria-label="목표 핀" aria-pressed="false">목표 핀 찍기</button>
+  </div>
   <div class="mapPinTools"><span id="mapPinStatus" role="status">지도를 누르면 목적지 핀을 찍어요.</span><button type="button" class="btn small" id="btnMapPinClear" hidden>핀 지우기</button></div>
   <div class="mapBody"><div class="mapCanvasWrap"><canvas id="bigmap" width="560" height="560" tabindex="0" aria-label="섬 전체 지도. 방향키로 핀 위치 이동, 엔터로 핀 찍기"></canvas></div><div class="mapSide" id="mapSide"></div></div>
 </div></div>
@@ -336,10 +457,76 @@ function mapPointAt(fx, fz) {
   return { x: x0 + clamp(fx, 0, 1) * size, z: z0 + clamp(fz, 0, 1) * size };
 }
 function pinDistance(pin) { return Math.hypot(pin.x - P.x, pin.z - P.z); }
+function tideReadout() {
+  const t = G.time;
+  if (!G.clock) return { kind: 'ready', phase: '출항 준비', label: '만조까지', seconds: CFG.T };
+  if (t >= CFG.T) return { kind: 'surge', phase: '만조', label: G.inPort ? '탐험 종료까지' : '구조까지', seconds: CFG.T + CFG.SURGE - t };
+  const seconds = CFG.T - t;
+  if (t > CFG.T * .78) return { kind: 'soon', phase: '만조 임박', label: '만조까지', seconds };
+  if (U_LEVEL.v < 0) return { kind: 'ebb', phase: '썰물', label: '만조까지', seconds };
+  return { kind: 'rising', phase: '밀물', label: '만조까지', seconds };
+}
+function returnReadout() {
+  const r = G.ret;
+  const state = (style, name, detail) => `<span class="tag ${style}">${name}</span><span class="returnMessage">${detail}</span>`;
+  if (G.inPort) {
+    const place = atMainPort(P.x,P.z) ? '항구' : '안전 지대';
+    return state('st-safe',place,G.clock ? '안전하게 돌아왔어요' : '밖으로 나가면 물때가 시작돼요');
+  }
+  if (r.deep) return state('st-mid','동굴 안쪽','들어온 통로로 돌아가세요');
+  if (r.raft) return state('st-mid','돌 뗏목','물이 차오르면 함께 떠올라요');
+  if (!r.ok) return state('st-bad','귀환로 끊김',safeText(true));
+  const left = Math.max(0, r.margin);
+  const cls = !G.clock || left > 75 ? 'st-ok' : left > 40 ? 'st-mid' : left > 15 ? 'st-hi' : 'st-bad';
+  const status = cls === 'st-ok' ? '안전' : cls === 'st-mid' ? '빠듯' : cls === 'st-hi' ? '서두르기' : '위험';
+  const destination = G.islet ? '나룻배' : '항구';
+  const margin = G.clock ? `<span class="returnMetric returnMargin">안전 여유 <b>${fmtTime(left)}</b></span>` : '';
+  return `<span class="tag ${cls}">${status}</span><span class="returnMetric">${destination}까지 <b>${fmtTime(r.t)}</b></span>${margin}`;
+}
+function expeditionMapObjective() {
+  if (CH.on || G.dayDone) return null;
+  if (!G.islet && SAVE.ended && SAVE.lightStarted && !lightDone()) {
+    const { x, approachZ: z } = LIGHTHOUSE_SITE, stage = LIGHT_STAGES[SAVE.light];
+    return { title: '등대 복원', lighthouse: true, detail: stage.name + ' · ' + stage.cost.toLocaleString('ko-KR') + ' G. 등대 입구에서 진행할 수 있어요.', site: { x, z } };
+  }
+  if (!vaultActive() || SAVE.tideVault.claimed) return null;
+  if (G.islet) {
+    return SAVE.tideVault.clue
+      ? { title: '본섬의 흰 파도 수문 찾기', detail: '나룻배로 돌아가면 본섬의 물때가 시작되기 전에 수문으로 향할 수 있어요.', site: { x: ISLET.dockX, z: ISLET.dockZ } }
+      : { title: '언덕의 망원경 살펴보기', detail: '외딴섬 부두 옆 언덕에서 본섬의 흰 파도 표식을 찾아보세요.', site: TIDE_VAULT.scope };
+  }
+  if (!SAVE.tideVault.clue) {
+    if (SAVE.isletVisit.day === SAVE.stats.exp) return null;
+    return { title: '외딴섬 나룻배 찾아가기', detail: G.clock
+      ? '다음 탐험에서 본섬의 물때가 시작되기 전에 항구 서쪽 나룻배에 타세요.'
+      : '항구 서쪽 나룻배를 타고 외딴섬을 탐험해 보세요.', site: { x: ISLET.portX, z: ISLET.portZ } };
+  }
+  if (vaultOpen()) return { title: '조수 금고에서 보물 챙기기', detail: '밀물에 부표가 떠올랐어요. 높은 곳의 금고가 열렸어요.', site: TIDE_VAULT.chest };
+  if (vaultArmed()) return { title: '높은 곳의 조수 금고로 이동', detail: '부표가 떠오르면 금고가 열려요.', site: TIDE_VAULT.chest, remaining: tideTimeFor(TIDE_VAULT.rise) - G.time };
+  if (U_LEVEL.v >= vaultValveDeadline()) return { title: '다음 썰물에 수문 열기', detail: '흰 파도 수문이 물에 잠겼어요. 다음 탐험의 썰물에 돌아오세요.', site: TIDE_VAULT.valve };
+  return { title: '흰 파도 수문 열기', detail: '동쪽 해변의 낮은 수문을 열고 조수 금고가 있는 높은 곳으로 이동하세요.', site: TIDE_VAULT.valve };
+}
+function mapPinMatches(site) {
+  const pin = SAVE.mapPin;
+  return !!(pin && pin.x === site.x && pin.z === site.z);
+}
+function renderMapObjective(goal) {
+  const box = $('mapQuest');
+  box.hidden = !goal;
+  if (!goal) return;
+  setText($('mapQuestTitle'),goal.title);
+  const time = goal.remaining === undefined ? '' : ` 열리기까지 약 ${fmtTime(goal.remaining)} 남았어요.`;
+  setText($('mapQuestDetail'),goal.detail + time);
+  $('mapQuestPin').onclick = () => setMapPin(mapPinMatches(goal.site) ? null : {x:goal.site.x,z:goal.site.z});
+}
 function renderMapPin() {
   const pin = SAVE.mapPin;
   setText($('mapPinStatus'), pin ? `목적지까지 ${Math.round(pinDistance(pin))} m · 지도를 누르면 이동` : '지도를 누르면 목적지 핀을 찍어요.');
   $('btnMapPinClear').hidden = !pin;
+  const goal = expeditionMapObjective();
+  const button = $('mapQuestPin'), pinned = !!goal && mapPinMatches(goal.site);
+  button.setAttribute('aria-pressed', String(pinned));
+  setText(button, pinned ? '목표 핀 지우기' : '목표 핀 찍기');
 }
 function setMapPin(pin) {
   SAVE.mapPin = pin;
@@ -364,8 +551,8 @@ function bindMapPin() {
     const [sx, sz] = bmP(G.safe.x, G.safe.z); label('안전한 높은 곳', sx, sz - 14 * u, { size: 11, col: '#155a72' });
   }
   // 침수 구역: 잠기는 차례대로 번호 (옆 목록과 같은 번호)
-  zoneOrder().forEach((zi, n) => {
-    const z = FLOOD_ZONES[zi], st = zoneState(zi);
+  zonesByHeight().forEach((z, n) => {
+    const st = zoneState(z);
     const [x, y] = bmP(z.mx ?? z.x, z.mz ?? z.z);
     c.beginPath(); c.arc(x, y, 8.5 * u, 0, TAU); c.fillStyle = st.col; c.fill();
     c.lineWidth = 2.2 * u; c.strokeStyle = '#fff'; c.stroke();
@@ -390,11 +577,11 @@ function bindMapPin() {
   c.font = font(10.5, 700); c.textAlign = 'center'; c.textBaseline = 'alphabetic'; c.fillText('20m', sx + s20 / 2, sy - 4 * u);
 }
 // 침수 구역: 잠기는 차례와 지금 상태
-function zoneOrder() {
-  return FLOOD_ZONES.map((z, i) => i).sort((a, b) => FLOOD_ZONES[a].h - FLOOD_ZONES[b].h);
+function zonesByHeight() {
+  return [...activeFloodZones()].sort((a, b) => a.h - b.h);
 }
-function zoneState(i) {
-  const z = FLOOD_ZONES[i], ft = tideTimeFor(z.h + CFG.DANGER), rem = ft - (G.clock ? G.time : 0);
+function zoneState(z) {
+  const ft = tideTimeFor(z.h + CFG.DANGER), rem = ft - (G.clock ? G.time : 0);
   if (G.clock && rem <= 0) return { cls: 'gone', col: '#2d6fa3', tcol: '#2d6fa3', short: '잠김', long: '잠김' };
   if (ft >= CFG.T + CFG.SURGE) return { cls: 'never', col: '#6f8f6a', tcol: '#3f5d3a', short: '안 잠김', long: '오늘은 안 잠겨요' };
   if (G.clock && rem <= CFG.WARN_AHEAD) return { cls: 'soon', col: '#e8742a', tcol: '#c45a12', short: `${Math.ceil(rem)}초`, long: `${Math.ceil(rem)}초 뒤` };
@@ -403,26 +590,23 @@ function zoneState(i) {
 // 지도 옆 정보: 오늘의 물때, 귀환, 침수 일정, 발견한 비율, 범례
 function renderMapSide() {
   const t = G.clock ? G.time : 0;
-  const tm = !G.clock ? `만조까지 <b>${fmtTime(CFG.T)}</b> <small>(항구를 나가면 흐름)</small>` : t < CFG.T ? `만조까지 <b>${fmtTime(CFG.T - t)}</b>` : `구조선 출발까지 <b>${fmtTime(CFG.T + CFG.SURGE - t)}</b>`;
-  const r = G.ret;
-  let ret;
-  if (G.inPort) ret = '⚓ 지금 항구에 있어요';
-  else if (r.raft) ret = '⛵ 돌 뗏목 위 — 물과 함께 떠올라요';
-  else if (!r.ok) ret = `⛔ 걸어서 돌아갈 길이 없어요. ${safeText()}`;
-  else ret = `항구까지 걸어서 <b>${fmtTime(r.t)}</b>` + (G.clock ? ` · 여유 <b>${fmtTime(Math.max(0, r.margin))}</b>` : '');
-  const rows = zoneOrder().map((zi, n) => {
-    const st = zoneState(zi);
-    return `<li class="${st.cls}"><span><i class="zn" style="background:${st.col}">${n + 1}</i>${FLOOD_ZONES[zi].name}</span><b>${st.long}</b></li>`;
+  const tide = tideReadout();
+  const rows = zonesByHeight().map((z, n) => {
+    const st = zoneState(z);
+    return `<li class="${st.cls}"><span><i class="zn" style="background:${st.col}">${n + 1}</i>${z.name}</span><b>${st.long}</b></li>`;
   }).join('');
   const nxt = tideOfDay(SAVE.stats.exp + 1);
   const secret = COAST.bridges.find(b=>b.id==='secret');
-  const rumor = secret && !CH.on && SAVE.stats.exp>0
+  const rumor = secret && !CH.on && !G.islet && SAVE.stats.exp>0
     ? `<p class="mdesc"><b>🗝 썰물 비밀길</b> · ${secret.pad.on ? fmtTime(secretCloseTime(secret)-t)+' 뒤 닫혀요.' : '지금은 닫혔어요.'} ${coastData(false)?.secretDay===SAVE.stats.exp ? '오늘 상자는 열었어요.' : '오늘 상자: '+TREASURES[secretReward()].name+'.'} </p>`
     : '';
+  renderMapObjective(expeditionMapObjective());
+  const tideName = G.islet ? '<span class="tchip">외딴섬 물때</span>' : dayChips(TIDE, WEATHER);
+  const desc = G.islet ? '외딴섬에 도착할 때부터 물때가 따로 흘러요.' : TIDE.desc + (WEATHER.id !== 'clear' ? ' ' + WEATHER.desc : '');
   $('mapSide').innerHTML = `
-    <div class="mtide">${dayChips(TIDE, WEATHER)}<span>${tm}</span></div>
-    <p class="mdesc">${TIDE.desc}${WEATHER.id !== 'clear' ? ' ' + WEATHER.desc : ''}</p>
-    <div class="mret">${ret}</div>
+    <div class="mtide">${tideName}<span>${tide.label} <b>${fmtTime(tide.seconds)}</b></span></div>
+    <p class="mdesc">${desc}</p>
+    <div class="mret returnReadout">${returnReadout()}</div>
     ${rumor}
     <h4>오늘의 침수 일정</h4><ul class="mflood">${rows}</ul>
     <h4>탐험</h4><div class="mexp"><div class="bar"><i style="width:${(expFrac() * 100).toFixed(1)}%"></i></div><span>섬 발견 <b>${Math.floor(expFrac() * 100)}%</b></span></div>
@@ -431,7 +615,7 @@ function renderMapSide() {
     <div class="legend">
       <span><i class="lg sw-deep"></i>위험한 깊은 물</span><span><i class="lg sw-shallow"></i>얕은 물 (느려짐)</span>
       <span><i class="lg sw-soon"></i>30초 안에 잠김</span><span><i class="lg sw-fog"></i>아직 못 가 본 곳</span>
-      <span><i class="lg sw-route"></i>항구로 가는 길</span><span><i class="lg sw-item"></i>발견한 보물</span>
+      <span><i class="lg sw-route"></i>${G.islet ? '나룻배' : '항구'}로 가는 길</span><span><i class="lg sw-item"></i>발견한 보물</span>
       ${CH.on ? '' : '<span><i class="lg sw-lightpath"></i>등대길</span>'}
       <span><i class="lg sw-relic"></i>유물</span><span><i class="lg sw-zone"></i>잠기는 길목 (차례)</span>
       <span><i class="lg sw-mound">✕</i>발견한 모래 둔덕</span>
@@ -456,10 +640,10 @@ const UI = { bagSig: '', lastObj: '', toasts: [], hintT: 0, bannerT: 0, storyTok
 function hudInit() {
   $('btnHarborFinish').hidden = !canFinishHarborDay();
   const td = $('tideDay');
-  td.textContent = G.islet ? '⛵ 외딴섬 물때' : `${TIDE.icon} ${TIDE.short}`; td.className = 'tchip ' + TIDE.id;
+  td.textContent = G.islet ? '외딴섬 물때' : TIDE.short; td.className = 'tchip ' + (G.islet ? 'normal' : TIDE.id);
   td.title = G.islet ? '외딴섬에 도착할 때부터 흐르는 물때' : `${TIDE.name}: ${TIDE.desc}`;
   const tw = $('tideWx');
-  tw.textContent = `${WEATHER.icon} ${WEATHER.short}`; tw.className = 'tchip wx ' + WEATHER.id + (WEATHER.id === 'clear' ? ' hidden' : ''); tw.title = `${WEATHER.name}: ${WEATHER.desc}`;
+  tw.textContent = `${WEATHER.icon} ${WEATHER.short}`; tw.className = 'tchip wx ' + WEATHER.id + (G.islet || WEATHER.id === 'clear' ? ' hidden' : ''); tw.title = `${WEATHER.name}: ${WEATHER.desc}`;
   const marks = $('tideMarks'); marks.innerHTML = '';
   activeFloodZones().forEach((z, i) => {
     const f = clamp((z.h + CFG.DANGER - CFG.WL) / (CFG.WH - CFG.WL), 0, 1);
@@ -484,7 +668,7 @@ function renderBag(force) {
   if (gs !== UI.goldTxt) {
     const up = UI.goldTxt !== null && gs > UI.goldTxt;
     UI.goldTxt = gs;
-    $('goldBox').textContent = `💰 ${gs} G`; $('pmGold').textContent = `💰 ${gs} G`;
+    setText($('goldValue'), `${gs} G`); $('pmGold').textContent = `💰 ${gs} G`;
     if (up) { const gb = $('goldBox'); if (!gb.classList.contains('bump')) { gb.classList.add('bump'); setTimeout(() => gb.classList.remove('bump'), 260); } }
   }
   UI.laterT = (UI.laterT || 0) - dt;
@@ -509,48 +693,37 @@ function renderBag(force) {
   if (G.hudT > 0) return;
   G.hudT = 0.1;
   $('btnHarborFinish').hidden = !canFinishHarborDay();
-  placeFeed();
   renderBag(false);
   const rc = relicCount();
-  setHTML($('relicBox'), `<i>${RELICS.map(r => SAVE.relics[r.id] ? '◆' : '◇').join('')}</i> <span>유물 ${rc}/3</span>`);
+  setHTML($('relicBox'), `<i aria-hidden="true">${RELICS.map(r => SAVE.relics[r.id] ? '◆' : '◇').join('')}</i> <span>유물 ${rc}/3</span>`);
   setText($('stamText'), P.exhausted ? '숨 고르는 중' : Math.round(P.stam) + ' / ' + smax);
-  // 물때
-  const t = G.time;
-  let phase, timeHtml;
-  if (!G.clock) { phase = '⚓ 출항 준비'; timeHtml = `<small>만조까지</small>${fmtMS(CFG.T)}`; }
-  else if (t < CFG.T) {
-    phase = lvl < 0.0 ? '🌊 간조' : t > CFG.T * 0.78 ? '⚠ 만조 임박' : '↗ 밀물';
-    timeHtml = `<small>만조까지</small>${fmtMS(CFG.T - t)}`;
-  } else { phase = '🌊 만조'; timeHtml = `<small>구조까지</small>${fmtMS(CFG.T + CFG.SURGE - t)}`; }
-  setText($('tidePhase'), phase); setHTML($('tideTime'), timeHtml);
+  const tide = tideReadout();
+  $('tidePanel').dataset.phase = tide.kind;
+  setText($('tidePhase'), tide.phase);
+  setText($('tideTimeLabel'), tide.label);
+  setText($('tideTime'), fmtMS(tide.seconds));
   const marks = $('tideMarks').children;
   for (let i = 0; i < marks.length; i++) marks[i].classList.toggle('done', !!G.flooded[i]);
-  // 다음 침수
-  let nf = '';
-  if (!G.clock) nf = '항구 밖으로 나가면 물이 들어오기 시작해요';
-  else {
-    let best = null, bt = 1e9;
-    const zones = activeFloodZones();
-    zones.forEach((z, i) => { const rem = tideTimeFor(z.h + CFG.DANGER) - t; if (rem > 0 && rem < bt && zoneRelevant(z)) { bt = rem; best = z; } });
-    if (!best) zones.forEach((z, i) => { const rem = tideTimeFor(z.h + CFG.DANGER) - t; if (rem > 0 && rem < bt) { bt = rem; best = z; } });
-    nf = best ? `<span class="nfz">${bt <= CFG.WARN_AHEAD ? '⚠' : '🌊'} 다음 침수: <b>${best.name}</b></span><span class="nft"> · ${fmtMS(bt)} 뒤</span>` : '🌊 낮은 길이 모두 잠겼어요';
+  const flood = $('nextFlood');
+  let soon = false, next = '';
+  if (G.clock) {
+    let best = null, fallback = null, bestTime = Infinity, fallbackTime = Infinity;
+    for (const zone of activeFloodZones()) {
+      const time = tideTimeFor(zone.h + CFG.DANGER) - G.time;
+      if (time <= 0 || G.time + time >= CFG.T + CFG.SURGE) continue;
+      if (time < fallbackTime) { fallbackTime = time; fallback = zone; }
+      if (time < bestTime && zoneRelevant(zone)) { bestTime = time; best = zone; }
+    }
+    if (!best) { best = fallback; bestTime = fallbackTime; }
+    soon = bestTime <= CFG.WARN_AHEAD;
+    next = best ? `<span class="floodName">다음 침수 · ${best.name}</span><strong>${fmtMS(bestTime)} 뒤</strong>` : '<span>남은 침수 예정 구역이 없어요</span>';
   }
-  setHTML($('nextFlood'), nf);
-  // 귀환 판단
-  const r = G.ret;
-  let rs;
-  if (G.inPort) rs = '<span class="tag st-safe">⚓ 항구</span>여기는 언제나 안전해요';
-  else if (r.deep) rs = '<span class="tag st-mid">동굴 안쪽</span>들어온 통로에서 입구 쪽으로 돌아가세요';
-  else if (r.raft) rs = '<span class="tag st-mid">⛵ 뗏목 위</span>물이 차오르면 함께 떠올라요';
-  else if (!r.ok) rs = `<span class="tag st-bad">⛔ 귀환 경로 없음</span>${safeText(true)}`;
-  else {
-    const m = Math.max(0, r.margin);
-    const cls = !G.clock ? 'st-ok' : m > 75 ? 'st-ok' : m > 40 ? 'st-mid' : m > 15 ? 'st-hi' : 'st-bad';
-    const lab = !G.clock ? '여유' : m > 75 ? '여유' : m > 40 ? '빠듯' : m > 15 ? '서둘러요' : '위험';
-    rs = `<span class="tag ${cls}">${lab}</span>${G.islet ? '나룻배' : '항구'}<span class="lng">까지 걸어서</span> ${fmtMS(r.t)}` + (G.clock ? ` · <span class="lng">남은 </span>여유 <span class="rm">${fmtMS(m)}</span>` : '');
-  }
-  setHTML($('returnStat'), rs);
+  flood.hidden = !next;
+  flood.dataset.soon = String(soon);
+  setHTML(flood, next);
+  setHTML($('returnStat'), returnReadout());
   updateObjective(false);
+  placeFeed();
   G.mapT -= 0.1;
   if (G.mapT <= 0) { G.mapT = 0.15; drawMinimap(); }
   updateZoneTags();
@@ -575,49 +748,54 @@ function nextRelicHint() {
   return '';
 }
 function updateObjective(force) {
-  let main, sub = '';
+  let main, sub = '', bonus = '';
+  const goal = expeditionMapObjective();
   if (CH.on) {
-    const b = dailyBest(CH.date);
-    main = G.clock ? '🏝 물에 잠기기 전에 보물을 <b>항구 창구</b>에서 정산하세요' : '🏝 오늘의 섬: <b>항구 밖으로</b> 나가면 물때가 흘러요';
-    sub = `지금 기록 ${G.expEarn} G · 오늘 최고 ${b !== null ? b + ' G' : '없음'}`;
-    if (G.clock && !G.inPort && G.ret.ok && G.ret.margin < 25 && G.expEarn > 0) sub = '⚠ 지금 돌아가지 않으면 구조되어 기록이 절반이 돼요';
-    const html = main + `<span class="sub">${sub}</span>`;
-    if (force || html !== UI.lastObj) { if (SET.objMini && UI.lastObj && html !== UI.lastObj) $('objective').classList.add('new'); UI.lastObj = html; $('objective').innerHTML = html; $('objective').classList.toggle('warn', sub.startsWith('⚠')); }
-    return;
+    const best = dailyBest(CH.date);
+    main = G.clock ? '보물을 <b>항구 창구</b>에서 정산하세요' : '오늘의 섬 · <b>항구 밖으로</b> 출항하세요';
+    sub = `지금 ${G.expEarn} G · 오늘 최고 ${best !== null ? best + ' G' : '없음'}`;
+    if (G.clock && !G.inPort && G.ret.ok && G.ret.margin < 25 && G.expEarn > 0) sub = '⚠ 구조되면 기록이 절반으로 줄어요';
+  } else if (G.islet) {
+    main = goal?.title || '외딴섬을 탐험하고 <b>나룻배</b>로 돌아오세요';
+    sub = goal ? '큰 지도에서 목표에 핀을 찍을 수 있어요' : '부두 언덕은 안전하고, 낮은 모래길은 먼저 잠겨요';
+  } else {
+    if (SAVE.ended) {
+      const q = SAVE.req;
+      main = '항구 의뢰와 도전 과제를 해결해 보세요';
+      if (q) sub = reqProgress() >= q.count ? `게시판에서 의뢰 전달 · 보상 +${q.reward} G` : `의뢰 · ${TREASURES[q.type].name} ${reqProgress()}/${q.count}개`;
+      if (SAVE.lightStarted && !lightDone()) {
+        main = `<b>등대 복원</b> · ${SAVE.light}/${LIGHT_STAGES.length}단계 완료`;
+        const stage = LIGHT_STAGES[SAVE.light];
+        if (stage) sub = `${stage.name} · ${stage.cost} G`;
+      }
+    } else if (SAVE.placed) { main = '열린 <b>성소</b> 안으로 들어가 보세요'; }
+    else if (relicCount() === 3) { main = '<b>고대 제단</b>에 유물을 바치세요'; sub = '위쪽 테라스 북쪽의 석문 앞이에요'; }
+    else if (SAVE.stats.items === 0 && G.bag.length === 0) {
+      main = G.clock ? '반짝이는 <b>보물</b>을 주우세요' : '<b>항구 밖으로</b> 나가 보물을 찾아보세요';
+      sub = G.clock ? '첫 보물은 항구 동쪽 비탈에 있어요' : '동쪽 비탈을 내려가면 해변이에요';
+    } else if (SAVE.stats.earned === 0) {
+      main = G.bag.length ? '<b>항구</b>로 돌아가 보물을 정산하세요' : '<b>보물</b>을 찾아 항구로 가져오세요';
+      sub = '정산한 돈으로 장비를 업그레이드할 수 있어요';
+    } else if (!SAVE.clue) { main = '동쪽 모래톱 너머 <b>난파선</b>을 조사하세요'; sub = '모래톱은 섬에서 가장 먼저 잠겨요'; }
+    else { main = `유적의 <b>핵심 유물</b>을 모으세요 (${relicCount()}/3)`; sub = nextRelicHint(); }
+    if (goal && !goal.lighthouse) {
+      main = goal.title;
+      sub = goal.remaining === undefined ? '큰 지도에서 목표에 핀을 찍을 수 있어요' : '부표가 떠오르면 열려요 · 큰 지도에서 남은 시간 확인';
+    }
+    const signal = signalState();
+    if (signal === 'accepted') { main = '구조 신호를 보낼 위치를 찾으세요'; sub = `큰 지도에서 수색 범위 확인 · ${fmtTime(signalDeadline() - G.time)} 남음`; }
+    if (signal === 'activated') { main = '항구에서 구조 의뢰 보상을 받으세요'; sub = '의뢰 게시판에서 받을 수 있어요'; }
+    const harbor = harborGoal();
+    if (harbor) bonus = `<span class="sub goalBonus">${harbor.met ? '항구 보너스 달성' : `${harbor.task} · ${harbor.count}/${harbor.target}${harbor.unit}`} · +${harbor.reward} G</span>`;
   }
-  if (G.islet) {
-    const detail = SAVE.tideVault.clue ? '부두 언덕의 상자는 안전하고, 낮은 모래길은 먼저 잠겨요.' : '부두 옆 언덕의 망원경으로 본섬을 살펴볼 수 있어요.';
-    const html = `외딴섬의 보물을 찾아 <b>나룻배</b>로 돌아오세요<span class="sub">${detail}</span>`;
-    if (force || html !== UI.lastObj) { UI.lastObj = html; $('objective').innerHTML = html; $('objective').classList.remove('warn'); }
-    return;
-  }
-  if (SAVE.ended) {
-    const q = SAVE.req;
-    main = `자유 탐험: <b>의뢰</b>와 <b>도전 과제</b>를 해결해 보세요 (${achCount()}/${ACH.length})`;
-    if (q) sub = reqProgress() >= q.count ? `의뢰 준비 완료 — 게시판에서 전달하면 +${q.reward} G` : `의뢰: ${TREASURES[q.type].name} ${reqProgress()}/${q.count}개 · 보상 +${q.reward} G`;
-    else sub = '항구 게시판에 새 의뢰가 붙을 거예요';
-  }
-  else if (SAVE.placed) { main = '열린 <b>성소</b> 안으로 들어가 보세요'; }
-  else if (relicCount() === 3) { main = '유적 성소의 <b>고대 제단</b>에 유물을 바치세요'; sub = '제단은 위쪽 테라스 북쪽, 석문 앞에 있어요'; }
-  else if (SAVE.stats.items === 0 && G.bag.length === 0) { main = G.clock ? '반짝이는 <b>보물</b>에 다가가 E로 주우세요' : '<b>항구 밖으로</b> 나가 썰물이 남긴 보물을 찾아보세요'; sub = G.clock ? '첫 보물은 항구 동쪽 비탈에 있어요' : '동쪽 비탈을 내려가면 해변이에요'; }
-  else if (SAVE.stats.earned === 0) { main = G.bag.length ? '물이 차오르기 전에 <b>항구</b>로 돌아가 정산하세요' : '보물을 찾아 <b>항구</b>로 가져오세요'; sub = '정산해야 돈이 되고, 그 돈으로 장비를 고쳐요'; }
-  else if (!SAVE.clue) { main = '동쪽 모래톱 너머 <b>난파선</b>을 조사해 보세요'; sub = '모래톱은 섬에서 가장 먼저 잠겨요'; }
-  else { main = `유적의 <b>핵심 유물</b>을 모으세요 (${relicCount()}/3)`; sub = nextRelicHint(); }
-  const signal = signalState();
-  if (vaultActive() && SAVE.tideVault.clue && !SAVE.tideVault.claimed) {
-    sub = vaultArmed() ? (vaultOpen() ? '조수 금고가 열렸어요 · 큰 지도(M)에서 위치 확인' : '밀물을 기다리는 중 · 높은 곳의 조수 금고로 이동')
-      : (U_LEVEL.v >= vaultValveDeadline() ? '수문이 잠겼어요 · 다음 썰물에 흰 파도 수문 열기' : '큰 지도(M)의 흰 파도 수문을 썰물에 열어 보세요');
-  }
-  if (signal === 'accepted') sub = `📡 구조 신호 · 지도에서 수색 범위 확인 · 남은 시간 ${fmtTime(signalDeadline() - G.time)}`;
-  if (signal === 'activated') sub = '📡 신호 전송 완료 · 항구 의뢰 탭에서 보상을 받으세요';
-  if (G.clock && !G.inPort && G.ret.ok && G.ret.margin < 25 && rescueFee() > 0) sub = `⚠ 지금 돌아가지 않으면 구조비 ${rescueFee()} G를 내야 해요`;
-  const goal = harborGoal();
-  const bonus = goal ? `<span class="sub">⚓ ${goal.met ? '보너스 준비 완료' : goal.task + ' · ' + goal.count + '/' + goal.target + goal.unit} · +${goal.reward} G</span>` : '';
+  if (!CH.on && G.clock && !G.inPort && G.ret.ok && G.ret.margin < 25 && rescueFee() > 0) sub = `⚠ 서둘러 돌아가세요 · 구조비 ${rescueFee()} G`;
   const html = main + (sub ? `<span class="sub">${sub}</span>` : '') + bonus;
   if (force || html !== UI.lastObj) {
-    if (SET.objMini && UI.lastObj && html !== UI.lastObj) $('objective').classList.add('new');
-    UI.lastObj = html; $('objective').innerHTML = html;
-    $('objective').classList.toggle('warn', sub.startsWith('⚠'));
+    const card = $('objective');
+    if (SET.objMini && UI.lastObj && html !== UI.lastObj) card.classList.add('new');
+    UI.lastObj = html;
+    $('objectiveBody').innerHTML = html;
+    card.classList.toggle('warn', sub.startsWith('⚠'));
   }
 }
 // 미니맵
@@ -642,39 +820,47 @@ function hudOverlap() {
   }
   return false;
 }
-// 휴대폰 화면: 알림은 목표 카드 자리에 잠깐 겹쳐 보이고(그동안 목표 카드는 CSS에서 흐리게), 안내 문구는 그 바로 아래
-// 화면 가운데 캐릭터를 가리지 않게 위쪽에 모음. 위치는 CSS 변수로 넘김 (글자 크기 배율로 나누는 것은 CSS에서)
+// 알림은 목표 카드 아래에 배치한다. 좁은 가로 화면에서는 물때 카드 오른쪽을 사용한다.
 function phoneLayout() { return (UI.mq || (UI.mq = matchMedia('(max-width:720px), (max-height:500px) and (orientation:landscape)'))).matches; }
 function placeFeed() {
-  if (!phoneLayout() || $('hud').classList.contains('hidden')) return;
-  const ob = $('objective').getBoundingClientRect(), st = document.documentElement.style;
-  // 지금 할 일 카드를 접어 두었으면 알림은 그 자리 대신 위쪽 카드 묶음 바로 아래(세로) / 접힌 아이콘 아래(가로)
-  const mini = SET.objMini, land = innerWidth > innerHeight;
-  const tt = Math.round(mini ? (land ? ob.bottom + 6 : $('hudTop').getBoundingClientRect().bottom + 8) : ob.top);
-  if (UI.toastTop !== tt) { UI.toastTop = tt; st.setProperty('--toast-top', tt + 'px'); }
-  const tb = $('toasts').getBoundingClientRect();
-  const y = Math.round(Math.max(mini ? tt - 8 : ob.bottom, tb.height > 0 ? tb.bottom : 0) + 8);
-  if (UI.hintTop !== y) { UI.hintTop = y; st.setProperty('--hint-top', y + 'px'); }
-  // 휴대폰 세로 화면에서는 알림·안내를 가리지 않는 오른쪽 자리로 내린다.
-  if (!land) {
-    const hint = $('hint');
-    const bottom = Math.max($('hudTop').getBoundingClientRect().bottom,
-      hint.classList.contains('hidden') ? 0 : hint.getBoundingClientRect().bottom,
-      tb.height > 0 ? tb.bottom : 0);
-    const gap = Math.ceil((bottom - $('statusPanel').getBoundingClientRect().bottom + 12) / (UI.uiEff || 1));
-    if (UI.compassGap !== gap) { UI.compassGap = gap; st.setProperty('--compass-gap', gap + 'px'); }
+  if ($('hud').classList.contains('hidden')) return;
+  const top = $('hudTop').getBoundingClientRect(), objective = $('objective').getBoundingClientRect();
+  const status = $('statusPanel').getBoundingClientRect(), styles = document.documentElement.style;
+  const shortLandscape = innerHeight <= 500 && innerWidth > innerHeight;
+  const stacked = innerWidth <= 720 && !shortLandscape;
+  const sideBySide = !stacked && (innerWidth <= 1080 || shortLandscape);
+  const left = sideBySide ? $('tidePanel').getBoundingClientRect().right + 8 : top.left;
+  const right = top.right;
+  const y = Math.round((sideBySide ? Math.max(status.bottom, objective.bottom) : top.bottom) + 8);
+  const center = Math.round((left + right) * .5);
+  const width = Math.round(clamp(right - left, 100, 560));
+  const bounds = y + '|' + center + '|' + width;
+  if (UI.feedBounds !== bounds) {
+    UI.feedBounds = bounds;
+    styles.setProperty('--feed-top', y + 'px');
+    styles.setProperty('--feed-center', center + 'px');
+    styles.setProperty('--feed-width', width + 'px');
   }
+  if (!stacked && !sideBySide) return;
+  const toasts = $('toasts').getBoundingClientRect();
+  const hintTop = Math.round(Math.max(y, toasts.height > 0 ? toasts.bottom : 0) + 6);
+  if (UI.hintTop !== hintTop) { UI.hintTop = hintTop; styles.setProperty('--hint-top', hintTop + 'px'); }
+  const hint = $('hint');
+  const hintBelowHud = (stacked || shortLandscape) && !hint.classList.contains('hidden');
+  const offset = hintBelowHud ? Math.max(hintTop, hint.getBoundingClientRect().bottom) : hintTop;
+  const compassGap = Math.ceil((offset - status.bottom + 8) / (UI.uiEff || 1));
+  if (UI.compassGap !== compassGap) { UI.compassGap = compassGap; styles.setProperty('--compass-gap', compassGap + 'px'); }
 }
-// 휴대폰: 지금 할 일 카드를 눌러 작은 🎯 아이콘으로 접거나 펼침 (설정에 기억). 데스크톱 배치에서는 늘 펼친 모양
 function applyObjMini() {
-  $('objective').classList.toggle('mini', !!SET.objMini);
-  $('hudTop').classList.toggle('objmini', !!SET.objMini);
-  $('objective').setAttribute('aria-label', SET.objMini ? '지금 할 일 (접힘, 눌러서 펼치기)' : '');
-  if (!SET.objMini) $('objective').classList.remove('new');
+  const card = $('objective'), collapsed = !!SET.objMini;
+  card.classList.toggle('mini', collapsed);
+  card.setAttribute('aria-expanded', String(!collapsed));
+  if (!collapsed) card.classList.remove('new');
 }
 function toggleObjMini() {
-  if (!phoneLayout()) return;
-  SET.objMini = !SET.objMini; saveSettings(); SND.click();
+  SET.objMini = !SET.objMini;
+  saveSettings();
+  SND.click();
   applyObjMini(); applyUiScale(); placeFeed();
 }
 function applyUiScale() {
@@ -691,7 +877,7 @@ function applyKeyLabels() {
   const k = keyName;
   const run = document.querySelector('#bagPanel .row.small span'); if (run && !TOUCH.dev) run.textContent = `달리기 체력 (${k('run')})`;
   $('imark').firstChild.textContent = TOUCH.dev ? 'E' : k('act');
-  if (!TOUCH.dev) { $('btnMapClose').textContent = `닫기 (${k('map')})`; $('minimapWrap').querySelector('.mmhint').textContent = `🗺 ${k('map')}`; $('btnMap').title = `섬 지도 (${k('map')})`; $('minimapWrap').title = `눌러서 큰 지도 보기 (${k('map')})`; $('btnHelp').title = `플레이 방법 (${k('help')})`; $('bagPanel').title = `가방 열기 (${k('bag')})`; }
+  if (!TOUCH.dev) { $('btnMapClose').textContent = `닫기 (${k('map')})`; $('minimapWrap').querySelector('.mmhint').textContent = `지도 ${k('map')}`; $('btnMap').title = `섬 지도 (${k('map')})`; $('minimapWrap').title = `눌러서 큰 지도 보기 (${k('map')})`; $('btnHelp').title = `플레이 방법 (${k('help')})`; $('bagPanel').title = `가방 열기 (${k('bag')})`; }
 }
 function pauseGame() {
   if (G.mode !== 'play') return;
@@ -716,7 +902,12 @@ function openHelp() {
 }
 function setMute(m) {
   SET.mute = m; saveSettings(); SND.applyVolumes();
-  $('btnMute').textContent = m ? '🔇' : '🔊';
+  syncMuteButton();
+}
+function syncMuteButton() {
+  const b = $('btnMute');
+  b.textContent = SET.mute ? '🔇' : '🔊';
+  b.setAttribute('aria-pressed', String(SET.mute));
 }
 function showEnding(first) {
   G.mode = 'menu';
@@ -736,7 +927,7 @@ function showEnding(first) {
    ========================================================= */
 const tick = () => new Promise(r => setTimeout(r, 0));
 // 빌드 식별자: 어떤 판을 실행 중인지 확인용 (화면 구석·설정·콘솔에만 표시, 저장·규칙과 무관)
-const BUILD_ID = 'Sinking Island build 2026-11-tide-vault';
+const BUILD_ID = 'Sinking Island build 2026-11-expedition-ui';
 async function boot() {
   const say = t => { $('loadText').textContent = t; };
   loadSettings();
@@ -761,6 +952,10 @@ async function boot() {
   $('btnMapClose').onclick = () => closeMap();
   bindMapPin();
   $('bagPanel').onclick = () => { if (G.mode === 'play') openBag(); };
+  $('bagPanel').addEventListener('keydown', e => {
+    if (G.mode !== 'play' || (e.key !== 'Enter' && e.key !== ' ')) return;
+    e.preventDefault(); e.stopPropagation(); openBag();
+  });
   $('bvClose').onclick = () => { SND.click(); closeBag(); };
   $('bvOk').onclick = () => confirmSwap();
   $('bagView').addEventListener('pointerdown', e => { if (e.target.id === 'bagView') closeBag(); });
@@ -776,7 +971,7 @@ async function boot() {
   $('btnPause').onclick = () => { SND.click(); pauseGame(); };
   $('btnMute').onclick = () => setMute(!SET.mute);
   $('btnHelp').onclick = () => openHelp();
-  // 휴대폰: 지금 할 일 카드를 눌러 접기/펼치기, 안내 문구는 눌러서 바로 닫기
+  // 지금 할 일 카드를 접거나 펼치고, 안내 문구는 눌러서 닫는다.
   $('objective').addEventListener('click', toggleObjMini);
   $('hint').addEventListener('click', () => { $('hint').classList.add('hidden'); UI.hintT = 0; placeFeed(); });
   applyObjMini();
@@ -801,7 +996,7 @@ async function boot() {
     if (!SAVE.lightStarted) openPort('light');
   };
   $('btnEndTitle').onclick = () => { closeEnding(); showTitle(); };
-  $('btnMute').textContent = SET.mute ? '🔇' : '🔊';
+  syncMuteButton();
   setupTouch(); setupCameraOrbit();
   applyUiScale(); applyKeyLabels();
 }
@@ -826,7 +1021,7 @@ function finishRebind(code) {
   $('btnMapClose').textContent = '닫기';
   $('btnReaderClose').textContent = '닫기';
   $('minimapWrap').title = '눌러서 큰 지도 보기';
-  $('minimapWrap').querySelector('.mmhint').textContent = '🗺 지도';
+  $('minimapWrap').querySelector('.mmhint').textContent = '큰 지도';
   const st = $('stick'), kn = $('knob');
   let id = null, cx = 0, cy = 0;
   st.addEventListener('pointerdown', e => { id = e.pointerId; st.setPointerCapture(id); const r = st.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2; TOUCH.on = true; move(e); });
